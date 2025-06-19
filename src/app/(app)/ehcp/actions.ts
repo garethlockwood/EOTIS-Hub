@@ -2,7 +2,7 @@
 'use server';
 
 import { auth, db, storage } from '@/lib/firebase';
-import { collection, addDoc, getDocs, deleteDoc, doc, updateDoc, query, orderBy, Timestamp, getDoc } from 'firebase/firestore';
+import { collection, addDoc, getDocs, deleteDoc, doc, updateDoc, query, orderBy, Timestamp, getDoc, where } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import type { EHCPDocument } from '@/types';
 import { revalidatePath } from 'next/cache';
@@ -15,8 +15,25 @@ async function isAdmin(uid: string): Promise<boolean> {
 }
 
 export async function getEhcpDocuments(): Promise<{ documents?: EHCPDocument[]; error?: string }> {
+  const currentUser = auth.currentUser;
+  if (!currentUser) {
+    return { error: 'User not authenticated.' };
+  }
+
   try {
-    const q = query(collection(db, 'ehcpDocuments'), orderBy('uploadDate', 'desc'));
+    let q;
+    const isCurrentUserAdmin = await isAdmin(currentUser.uid);
+
+    if (isCurrentUserAdmin) {
+      q = query(collection(db, 'ehcpDocuments'), orderBy('uploadDate', 'desc'));
+    } else {
+      q = query(
+        collection(db, 'ehcpDocuments'),
+        where('associatedUserId', '==', currentUser.uid),
+        orderBy('uploadDate', 'desc')
+      );
+    }
+
     const querySnapshot = await getDocs(q);
     const documents = querySnapshot.docs.map(docSnap => {
       const data = docSnap.data();
@@ -30,8 +47,9 @@ export async function getEhcpDocuments(): Promise<{ documents?: EHCPDocument[]; 
         fileType: data.fileType,
         description: data.description,
         uploaderUid: data.uploaderUid,
-        uploaderName: data.uploaderName, // Assuming you might store this
+        uploaderName: data.uploaderName,
         originalFileName: data.originalFileName,
+        associatedUserId: data.associatedUserId,
       } as EHCPDocument;
     });
     return { documents };
@@ -60,9 +78,11 @@ export async function addEhcpDocument(formData: FormData): Promise<AddEhcpDocume
   const name = formData.get('name') as string | null;
   const description = formData.get('description') as string | null;
   const status = formData.get('status') as 'Current' | 'Previous' | null;
+  const associatedUserId = formData.get('associatedUserId') as string | null;
 
-  if (!file || !name || !status) {
-    return { error: 'Missing required fields (file, name, or status).' };
+
+  if (!file || !name || !status || !associatedUserId) {
+    return { error: 'Missing required fields (file, name, status, or associated user ID).' };
   }
 
   if (!['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'].includes(file.type)) {
@@ -70,7 +90,7 @@ export async function addEhcpDocument(formData: FormData): Promise<AddEhcpDocume
   }
   
   const fileType = file.type === 'application/pdf' ? 'pdf' : 'docx';
-  const documentId = doc(collection(db, 'ehcpDocuments')).id; // Generate a new ID
+  const documentId = doc(collection(db, 'ehcpDocuments')).id;
   const storagePath = `ehcp_documents/${documentId}/${file.name}`;
   const storageRef = ref(storage, storagePath);
 
@@ -86,20 +106,21 @@ export async function addEhcpDocument(formData: FormData): Promise<AddEhcpDocume
       storagePath,
       fileType,
       uploaderUid: currentUser.uid,
-      uploaderName: currentUser.displayName || currentUser.email, // Store uploader's name
+      uploaderName: currentUser.displayName || currentUser.email,
       originalFileName: file.name,
       uploadDate: Timestamp.now(),
+      associatedUserId: associatedUserId,
     };
 
-    await addDoc(collection(db, 'ehcpDocuments'), newDocData);
+    const newDocRef = await addDoc(collection(db, 'ehcpDocuments'), newDocData);
     
-    revalidatePath('/ehcp'); // Revalidate the EHCP page cache
+    revalidatePath('/ehcp');
 
     return { 
         success: true, 
         document: {
             ...newDocData,
-            docId: documentId, // This won't be the actual ID from addDoc, but good for immediate client update if needed
+            docId: newDocRef.id, // Use the actual ID from addDoc
             uploadDate: newDocData.uploadDate.toDate().toISOString(),
         } as EHCPDocument
     };
@@ -119,11 +140,9 @@ export async function deleteEhcpDocument(docId: string, storagePath: string): Pr
   }
 
   try {
-    // Delete from Storage
     const fileRef = ref(storage, storagePath);
     await deleteObject(fileRef);
 
-    // Delete from Firestore
     await deleteDoc(doc(db, 'ehcpDocuments', docId));
     
     revalidatePath('/ehcp');
@@ -131,7 +150,6 @@ export async function deleteEhcpDocument(docId: string, storagePath: string): Pr
   } catch (error: any) {
     console.error('Error deleting EHCP document:', error);
     if (error.code === 'storage/object-not-found') {
-        // If file not found in storage, still try to delete from Firestore
         try {
             await deleteDoc(doc(db, 'ehcpDocuments', docId));
             revalidatePath('/ehcp');
@@ -162,4 +180,3 @@ export async function updateEhcpDocumentStatus(docId: string, newStatus: 'Curren
     return { error: error.message || 'Failed to update status.' };
   }
 }
-

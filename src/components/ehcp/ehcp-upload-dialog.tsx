@@ -34,6 +34,7 @@ export function EhcpUploadDialog({ isOpen, onOpenChange, onUploadComplete, trigg
   const [fileName, setFileName] = useState('');
   const [description, setDescription] = useState('');
   const [status, setStatus] = useState<'Current' | 'Previous'>('Current');
+  const [associatedUserId, setAssociatedUserId] = useState('');
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -62,15 +63,15 @@ export function EhcpUploadDialog({ isOpen, onOpenChange, onUploadComplete, trigg
     setFileName('');
     setDescription('');
     setStatus('Current');
-    // Also reset the file input visually if possible
+    setAssociatedUserId('');
     const fileInput = document.getElementById('ehcpFile') as HTMLInputElement;
     if (fileInput) fileInput.value = "";
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedFile || !fileName.trim() || !status) {
-      toast({ variant: 'destructive', title: 'Missing Fields', description: 'Please provide a file, name, and status.' });
+    if (!selectedFile || !fileName.trim() || !status || !associatedUserId.trim()) {
+      toast({ variant: 'destructive', title: 'Missing Fields', description: 'Please provide a file, name, status, and associated user ID.' });
       return;
     }
     setIsSubmitting(true);
@@ -80,6 +81,7 @@ export function EhcpUploadDialog({ isOpen, onOpenChange, onUploadComplete, trigg
     formData.append('name', fileName.trim());
     formData.append('description', description.trim());
     formData.append('status', status);
+    formData.append('associatedUserId', associatedUserId.trim());
 
     const result = await addEhcpDocument(formData);
 
@@ -97,14 +99,14 @@ export function EhcpUploadDialog({ isOpen, onOpenChange, onUploadComplete, trigg
   return (
     <Dialog open={isOpen} onOpenChange={(open) => {
         onOpenChange(open);
-        if (!open) resetForm(); // Reset form when dialog is closed
+        if (!open) resetForm();
     }}>
       {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
       <DialogContent className="sm:max-w-[525px]">
         <DialogHeader>
           <DialogTitle className="font-headline">Upload EHCP Document</DialogTitle>
           <DialogDescription>
-            Select a PDF or DOCX file and provide details. Max file size: 10MB.
+            Select a PDF or DOCX file, provide details, and specify the associated user ID. Max file size: 10MB.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="grid gap-6 py-4">
@@ -116,6 +118,11 @@ export function EhcpUploadDialog({ isOpen, onOpenChange, onUploadComplete, trigg
           <div>
             <Label htmlFor="fileName">Document Name</Label>
             <Input id="fileName" value={fileName} onChange={(e) => setFileName(e.target.value)} className="mt-1" placeholder="e.g., Final EHCP - John Doe" required />
+          </div>
+
+          <div>
+            <Label htmlFor="associatedUserId">Associated User ID (Student/Client)</Label>
+            <Input id="associatedUserId" value={associatedUserId} onChange={(e) => setAssociatedUserId(e.target.value)} className="mt-1" placeholder="Enter the User ID this document pertains to" required />
           </div>
 
           <div>
@@ -150,4 +157,3 @@ export function EhcpUploadDialog({ isOpen, onOpenChange, onUploadComplete, trigg
     </Dialog>
   );
 }
-

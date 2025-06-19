@@ -113,5 +113,6 @@ export interface EHCPDocument {
   uploaderUid: string; // UID of the admin who uploaded
   uploaderName?: string; // Optional: denormalized name of uploader
   originalFileName: string;
+  associatedUserId: string; // UID of the user (e.g., student) this document belongs to
 }
 
