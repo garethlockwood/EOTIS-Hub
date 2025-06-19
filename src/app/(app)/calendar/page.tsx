@@ -124,6 +124,19 @@ export default function CalendarPage() {
     setCurrentView('day'); // Switch to day view when a date is selected from week/day view
   };
 
+  const currentWeekStart = startOfWeek(selectedDate, { weekStartsOn: 1 }); // Monday
+  const currentWeekEnd = endOfWeek(selectedDate, { weekStartsOn: 1 });
+
+  const viewTitle = useMemo(() => {
+    if (currentView === 'month') return format(selectedDate, 'MMMM yyyy');
+    if (currentView === 'week') {
+      const startFormatted = format(currentWeekStart, 'MMM d');
+      const endFormatted = format(currentWeekEnd, 'MMM d, yyyy');
+      return `${startFormatted} - ${endFormatted}`;
+    }
+    if (currentView === 'day') return format(selectedDate, 'EEEE, MMM d, yyyy');
+    return '';
+  }, [currentView, selectedDate, currentWeekStart, currentWeekEnd]);
 
   if (!isMounted) {
     return (
@@ -140,20 +153,6 @@ export default function CalendarPage() {
     );
   }
   
-  const currentWeekStart = startOfWeek(selectedDate, { weekStartsOn: 1 }); // Monday
-  const currentWeekEnd = endOfWeek(selectedDate, { weekStartsOn: 1 });
-
-  const viewTitle = useMemo(() => {
-    if (currentView === 'month') return format(selectedDate, 'MMMM yyyy');
-    if (currentView === 'week') {
-      const startFormatted = format(currentWeekStart, 'MMM d');
-      const endFormatted = format(currentWeekEnd, 'MMM d, yyyy');
-      return `${startFormatted} - ${endFormatted}`;
-    }
-    if (currentView === 'day') return format(selectedDate, 'EEEE, MMM d, yyyy');
-    return '';
-  }, [currentView, selectedDate, currentWeekStart, currentWeekEnd]);
-
 
   return (
     <>
@@ -246,5 +245,3 @@ export default function CalendarPage() {
     </>
   );
 }
-
-    
