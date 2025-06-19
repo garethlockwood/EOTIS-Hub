@@ -16,15 +16,18 @@ async function isAdmin(uid: string | undefined): Promise<boolean> {
 }
 
 export async function getEhcpDocuments(actingUserId: string): Promise<{ documents?: EHCPDocument[]; error?: string }> {
-  if (!actingUserId) {
-    return { error: 'User not authenticated (actingUserId missing in action).' };
+  if (!actingUserId || typeof actingUserId !== 'string' || actingUserId.trim() === '') {
+    console.error('Error in getEhcpDocuments: Invalid or missing actingUserId provided.');
+    return { error: 'Invalid user identifier for fetching documents.' };
   }
+
+  console.log(`Fetching EHCP documents for actingUserId: "${actingUserId}"`); // Log the actingUserId
 
   try {
     const q = query(
       collection(db, 'ehcpDocuments'),
       where('associatedUserId', '==', actingUserId),
-      orderBy('uploadDate', 'desc') // Reverted: orderBy is back
+      orderBy('uploadDate', 'desc') // orderBy is reinstated
     );
 
     const querySnapshot = await getDocs(q);
@@ -47,10 +50,9 @@ export async function getEhcpDocuments(actingUserId: string): Promise<{ document
     });
     return { documents };
   } catch (error: any) {
-    console.error('Error fetching EHCP documents (actions.ts):', error); // Detailed server-side log
+    console.error('Error fetching EHCP documents (actions.ts):', error); 
     let errorMessage = 'Failed to fetch documents due to an unexpected error.';
     if (error.code && error.message) {
-      // Provide a more detailed error if code and message are available
       errorMessage = `Error ${error.code}: ${error.message}`;
     } else if (error.message) {
       errorMessage = error.message;
@@ -195,3 +197,4 @@ export async function updateEhcpDocumentStatus(docId: string, newStatus: 'Curren
     return { error: error.message || 'Failed to update status.' };
   }
 }
+
