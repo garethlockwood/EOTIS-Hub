@@ -67,20 +67,18 @@ export default function EhcpPage() {
     try {
       const result = await getEhcpDocuments(user.id);
 
-      if (result) { // Check if result is not undefined/null
+      if (result) { 
         if (result.documents) {
           setDocuments(result.documents);
         } else if (result.error) {
           setError(result.error);
           setDocuments([]);
         } else {
-          // Result is an object, but not in the expected {documents: ...} or {error: ...} format
           setError('Received an unexpected response format from the server.');
           setDocuments([]);
           console.error('Unexpected response format from getEhcpDocuments:', result);
         }
       } else {
-        // Result is undefined or null
         setError('Failed to load documents. No response received from the server.');
         setDocuments([]);
         console.error('Null or undefined response from getEhcpDocuments.');
@@ -91,7 +89,7 @@ export default function EhcpPage() {
       setDocuments([]);
     }
     setIsLoading(false);
-  }, [user]); // Corrected dependency array
+  }, [user]);
 
   useEffect(() => {
     if (user) { 
@@ -241,7 +239,9 @@ export default function EhcpPage() {
                       <TableCell>
                         <Badge variant={getStatusBadgeVariant(doc.status)}>{doc.status}</Badge>
                       </TableCell>
-                      <TableCell>{format(parseISO(doc.uploadDate), 'PPp')}</TableCell>
+                      <TableCell>
+                        {doc.uploadDate ? format(parseISO(doc.uploadDate), 'PPp') : 'N/A'}
+                      </TableCell>
                       <TableCell className="hidden md:table-cell max-w-[150px] truncate" title={doc.uploaderName || doc.uploaderUid}>{doc.uploaderName || doc.uploaderUid}</TableCell>
                       <TableCell className="hidden lg:table-cell max-w-xs truncate text-sm text-muted-foreground" title={doc.description || 'N/A'}>{doc.description || 'N/A'}</TableCell>
                       <TableCell className="text-right space-x-1">
@@ -368,3 +368,5 @@ export default function EhcpPage() {
     </>
   );
 }
+
+    
