@@ -17,14 +17,14 @@ async function isAdmin(uid: string | undefined): Promise<boolean> {
 
 export async function getEhcpDocuments(actingUserId: string): Promise<{ documents?: EHCPDocument[]; error?: string }> {
   if (!actingUserId) {
-    return { error: 'User not authenticated.' };
+    return { error: 'User not authenticated (actingUserId missing in action).' };
   }
 
   try {
     const q = query(
       collection(db, 'ehcpDocuments'),
-      where('associatedUserId', '==', actingUserId)
-      // orderBy('uploadDate', 'desc') // Temporarily commented out for diagnostics
+      where('associatedUserId', '==', actingUserId),
+      orderBy('uploadDate', 'desc') // Reverted: orderBy is back
     );
 
     const querySnapshot = await getDocs(q);
@@ -33,7 +33,7 @@ export async function getEhcpDocuments(actingUserId: string): Promise<{ document
       return {
         docId: docSnap.id,
         name: data.name,
-        uploadDate: data.uploadDate ? (data.uploadDate as Timestamp).toDate().toISOString() : '', // Handle missing uploadDate gracefully
+        uploadDate: data.uploadDate ? (data.uploadDate as Timestamp).toDate().toISOString() : '',
         status: data.status,
         fileUrl: data.fileUrl,
         storagePath: data.storagePath,
@@ -47,8 +47,21 @@ export async function getEhcpDocuments(actingUserId: string): Promise<{ document
     });
     return { documents };
   } catch (error: any) {
-    console.error('Error fetching EHCP documents:', error);
-    return { error: error.message || 'Failed to fetch documents.' };
+    console.error('Error fetching EHCP documents (actions.ts):', error); // Detailed server-side log
+    let errorMessage = 'Failed to fetch documents due to an unexpected error.';
+    if (error.code && error.message) {
+      // Provide a more detailed error if code and message are available
+      errorMessage = `Error ${error.code}: ${error.message}`;
+    } else if (error.message) {
+      errorMessage = error.message;
+    } else if (error.code) {
+      errorMessage = `Firestore Error Code: ${error.code}`;
+    }
+    // Specifically identify permission denied for clarity, but include original details
+    if (error.code === 'permission-denied') {
+        errorMessage = `Missing or insufficient permissions. (Code: ${error.code}). Original message: ${error.message || 'No additional message.'}`;
+    }
+    return { error: errorMessage };
   }
 }
 
@@ -70,9 +83,8 @@ export async function addEhcpDocument(formData: FormData, actingUserId: string):
   const name = formData.get('name') as string | null;
   const description = formData.get('description') as string | null;
   const status = formData.get('status') as 'Current' | 'Previous' | null;
-  // const associatedUserId = formData.get('associatedUserId') as string | null; // Removed as it's now actingUserId
 
-  if (!file || !name || !status ) { // Removed check for associatedUserId
+  if (!file || !name || !status ) {
     return { error: 'Missing required fields (file, name, or status).' };
   }
 
@@ -113,8 +125,8 @@ export async function addEhcpDocument(formData: FormData, actingUserId: string):
       uploaderUid: actingUserId,
       uploaderName: uploaderName,
       originalFileName: file.name,
-      uploadDate: Timestamp.now(), // This sets the uploadDate correctly
-      associatedUserId: actingUserId, // Use actingUserId for association
+      uploadDate: Timestamp.now(), 
+      associatedUserId: actingUserId, 
       docId: documentId, 
     };
 
