@@ -46,7 +46,6 @@ export default function CalendarPage() {
   const [isMounted, setIsMounted] = useState(false);
   const { toast } = useToast();
   
-  // Moved hook-dependent calculations before the conditional return
   const currentWeekStart = useMemo(() => startOfWeek(selectedDate, { weekStartsOn: 1 }), [selectedDate]);
   const currentWeekEnd = useMemo(() => endOfWeek(selectedDate, { weekStartsOn: 1 }), [selectedDate]);
 
@@ -75,18 +74,23 @@ export default function CalendarPage() {
   
   useEffect(() => setIsMounted(true), []);
 
+  const openNewEventDialog = useCallback(() => {
+    setEditingEvent(null);
+    setIsEventDialogOpen(true);
+  }, []); // State setters are stable, so empty dependency array is fine
+
   if (!isMounted) {
     return (
-      <div className="flex flex-col h-[calc(100vh-10rem)]">
+      <>
         <PageHeader title="Interactive Calendar" description="Manage your lessons, meetings, and events.">
             <Button onClick={openNewEventDialog} disabled>
             <PlusCircle className="mr-2 h-4 w-4" /> Add Event
             </Button>
         </PageHeader>
-        <div className="flex justify-center items-center flex-1">
+        <div className="flex justify-center items-center flex-1 h-[calc(100vh-16rem)]"> {/* Adjusted height */}
             <p>Loading Calendar...</p>
         </div>
-      </div>
+      </>
     );
   }
 
@@ -99,7 +103,9 @@ export default function CalendarPage() {
   const handleMonthDateSelect = (date: Date | undefined) => {
     if (date) {
       setSelectedDate(date);
-      toast({ title: "Date Selected", description: `Displaying agenda for ${format(date, 'PPP')}.` });
+      if (currentView === 'month') { // Only show toast if in month view, as other views select date for navigation
+        toast({ title: "Date Selected", description: `Displaying agenda for ${format(date, 'PPP')}.` });
+      }
     }
   };
 
@@ -122,11 +128,6 @@ export default function CalendarPage() {
     const eventTitle = events.find(e => e.id === eventId)?.title || "event";
     setEvents(prevEvents => prevEvents.filter(e => e.id !== eventId));
     toast({ title: "Event Deleted", description: `Event "${eventTitle}" has been deleted.`, variant: "destructive"});
-  };
-
-  const openNewEventDialog = () => {
-    setEditingEvent(null);
-    setIsEventDialogOpen(true);
   };
 
   const openEditEventDialog = useCallback((event: CalendarEvent) => {
@@ -173,7 +174,7 @@ export default function CalendarPage() {
         </Button>
       </PageHeader>
 
-      <div className="flex flex-col h-[calc(100vh-14rem)] md:h-[calc(100vh-12rem)]">
+      <div className="flex flex-col flex-1 h-[calc(100vh-14rem)] md:h-[calc(100vh-12rem)]">
         <Card className="flex-1 flex flex-col shadow-lg overflow-hidden">
           <Tabs value={currentView} onValueChange={(v) => setCurrentView(v as 'month' | 'week' | 'day')} className="flex-1 flex flex-col">
             <div className="flex items-center p-2 border-b flex-wrap gap-2">
