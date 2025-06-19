@@ -21,18 +21,12 @@ export async function getEhcpDocuments(): Promise<{ documents?: EHCPDocument[]; 
   }
 
   try {
-    let q;
-    const isCurrentUserAdmin = await isAdmin(currentUser.uid);
-
-    if (isCurrentUserAdmin) {
-      q = query(collection(db, 'ehcpDocuments'), orderBy('uploadDate', 'desc'));
-    } else {
-      q = query(
-        collection(db, 'ehcpDocuments'),
-        where('associatedUserId', '==', currentUser.uid),
-        orderBy('uploadDate', 'desc')
-      );
-    }
+    // Admins and non-admins now have the same read logic: only see documents associated with their UID.
+    const q = query(
+      collection(db, 'ehcpDocuments'),
+      where('associatedUserId', '==', currentUser.uid),
+      orderBy('uploadDate', 'desc')
+    );
 
     const querySnapshot = await getDocs(q);
     const documents = querySnapshot.docs.map(docSnap => {
@@ -90,7 +84,8 @@ export async function addEhcpDocument(formData: FormData): Promise<AddEhcpDocume
   }
   
   const fileType = file.type === 'application/pdf' ? 'pdf' : 'docx';
-  const documentId = doc(collection(db, 'ehcpDocuments')).id;
+  const newDocFirestoreRef = doc(collection(db, 'ehcpDocuments')); // Generate ID upfront for storage path
+  const documentId = newDocFirestoreRef.id;
   const storagePath = `ehcp_documents/${documentId}/${file.name}`;
   const storageRef = ref(storage, storagePath);
 
@@ -110,9 +105,10 @@ export async function addEhcpDocument(formData: FormData): Promise<AddEhcpDocume
       originalFileName: file.name,
       uploadDate: Timestamp.now(),
       associatedUserId: associatedUserId,
+      docId: documentId, // Store the ID in the document as well
     };
 
-    const newDocRef = await addDoc(collection(db, 'ehcpDocuments'), newDocData);
+    await setDoc(newDocFirestoreRef, newDocData); // Use setDoc with the generated ref
     
     revalidatePath('/ehcp');
 
@@ -120,7 +116,6 @@ export async function addEhcpDocument(formData: FormData): Promise<AddEhcpDocume
         success: true, 
         document: {
             ...newDocData,
-            docId: newDocRef.id, // Use the actual ID from addDoc
             uploadDate: newDocData.uploadDate.toDate().toISOString(),
         } as EHCPDocument
     };
@@ -180,3 +175,4 @@ export async function updateEhcpDocumentStatus(docId: string, newStatus: 'Curren
     return { error: error.message || 'Failed to update status.' };
   }
 }
+
