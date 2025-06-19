@@ -1,7 +1,8 @@
+
 // src/app/(app)/ehcp/page.tsx
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, Fragment } from 'react';
 import { PageHeader } from '@/components/common/page-header';
 import { PLACEHOLDER_EHCP_DOCS } from '@/lib/constants';
 import type { EHCPDocument } from '@/types';
@@ -14,11 +15,44 @@ import { PlusCircle, Search, Download, Edit, Trash2, Eye } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/use-auth';
+import { useToast } from '@/hooks/use-toast';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export default function EhcpPage() {
-  const { user } = useAuth(); // For potential future user-specific filtering or upload permissions
-  const [documents, setDocuments] = useState<EHCPDocument[]>(PLACEHOLDER_EHCP_DOCS);
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [documents, setDocuments] = useState<EHCPDocument[]>(
+    PLACEHOLDER_EHCP_DOCS.map(doc => ({
+      ...doc,
+      // Ensure uploadDate is consistently a string for initial state
+      uploadDate: typeof doc.uploadDate === 'string' ? doc.uploadDate : new Date(doc.uploadDate).toISOString(),
+    }))
+  );
   const [searchTerm, setSearchTerm] = useState('');
+  const [editingDocument, setEditingDocument] = useState<EHCPDocument | null>(null);
+  const [isStatusDialogOpen, setIsStatusDialogOpen] = useState(false);
+  const [selectedStatus, setSelectedStatus] = useState<EHCPDocument['status'] | ''>('');
 
   const filteredDocuments = useMemo(() => {
     return documents.filter(doc => {
@@ -27,21 +61,53 @@ export default function EhcpPage() {
         (doc.description && doc.description.toLowerCase().includes(searchTerm.toLowerCase())) ||
         doc.status.toLowerCase().includes(searchTerm.toLowerCase());
       return matchesSearch;
-    }).sort((a,b) => new Date(b.uploadDate).getTime() - new Date(a.uploadDate).getTime()); // Sort by date, newest first
+    }).sort((a,b) => new Date(b.uploadDate).getTime() - new Date(a.uploadDate).getTime());
   }, [documents, searchTerm]);
 
   const getStatusBadgeVariant = (status: EHCPDocument['status']) => {
     switch (status) {
-      case 'Current': return 'default'; // Primary color for Current
+      case 'Current': return 'default';
       case 'Previous': return 'secondary';
       default: return 'outline';
     }
   };
 
+  const handleDeleteDocument = (docId: string) => {
+    const docToDelete = documents.find(d => d.id === docId);
+    setDocuments(prevDocs => prevDocs.filter(doc => doc.id !== docId));
+    toast({
+      title: "Document Deleted",
+      description: `"${docToDelete?.name || 'Document'}" has been removed.`,
+      variant: "destructive",
+    });
+  };
+
+  const openStatusDialog = (doc: EHCPDocument) => {
+    setEditingDocument(doc);
+    setSelectedStatus(doc.status);
+    setIsStatusDialogOpen(true);
+  };
+
+  const handleStatusChange = () => {
+    if (!editingDocument || !selectedStatus) return;
+
+    setDocuments(prevDocs =>
+      prevDocs.map(doc =>
+        doc.id === editingDocument.id ? { ...doc, status: selectedStatus as EHCPDocument['status'] } : doc
+      )
+    );
+    toast({
+      title: "Status Updated",
+      description: `Status for "${editingDocument.name}" changed to ${selectedStatus}.`,
+    });
+    setIsStatusDialogOpen(false);
+    setEditingDocument(null);
+  };
+
   return (
     <>
       <PageHeader title="EHCP Documents" description="Manage current and previous Education, Health and Care Plans.">
-        <Button disabled title="Upload Document (placeholder)"> {/* onClick={() => { setIsFormOpen(true); }} */}
+        <Button disabled={!user?.isAdmin} title={!user?.isAdmin ? "Admin rights required" : "Upload Document (placeholder)"}>
           <PlusCircle className="mr-2 h-4 w-4" /> Upload EHCP Document
         </Button>
       </PageHeader>
@@ -57,7 +123,6 @@ export default function EhcpPage() {
             className="pl-10 w-full"
           />
         </div>
-        {/* Add filtering by status if needed later */}
       </div>
 
       <Card className="shadow-lg">
@@ -90,7 +155,6 @@ export default function EhcpPage() {
                           </Link>
                         </Button>
                       ) : (
-                        // For DOCX, "View" will also trigger a download
                         <Button variant="ghost" size="icon" asChild title="View (Download DOCX)">
                            <Link href={doc.fileUrl} download={doc.name}>
                             <Eye className="h-4 w-4" />
@@ -102,12 +166,34 @@ export default function EhcpPage() {
                           <Download className="h-4 w-4" />
                         </Link>
                       </Button>
-                       <Button variant="ghost" size="icon" disabled title="Edit (placeholder)" className="hidden md:inline-flex">
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                       <Button variant="ghost" size="icon" disabled title="Delete (placeholder)" className="text-destructive hover:text-destructive hidden md:inline-flex">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      {user?.isAdmin && (
+                        <>
+                          <Button variant="ghost" size="icon" title="Change Status" className="hidden md:inline-flex" onClick={() => openStatusDialog(doc)}>
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="ghost" size="icon" title="Delete Document" className="text-destructive hover:text-destructive hidden md:inline-flex">
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  This action cannot be undone. This will permanently delete the document "{doc.name}".
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => handleDeleteDocument(doc.id)} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
+                                  Delete
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))
@@ -122,14 +208,40 @@ export default function EhcpPage() {
           </Table>
         </CardContent>
       </Card>
-      {/* 
-      <EhcpDocDialog 
-        isOpen={isFormOpen} 
-        onOpenChange={setIsFormOpen} 
-        // document={editingDoc} 
-        // onSave={handleSaveDoc} 
-      /> 
-      */}
+      
+      {editingDocument && (
+        <Dialog open={isStatusDialogOpen} onOpenChange={(isOpen) => {
+          setIsStatusDialogOpen(isOpen);
+          if (!isOpen) setEditingDocument(null);
+        }}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Change Status for "{editingDocument.name}"</DialogTitle>
+              <DialogDescription>Select the new status for this document.</DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="status" className="text-right">
+                  Status
+                </Label>
+                <Select value={selectedStatus} onValueChange={(value: EHCPDocument['status']) => setSelectedStatus(value)}>
+                  <SelectTrigger className="col-span-3">
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Current">Current</SelectItem>
+                    <SelectItem value="Previous">Previous</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => { setIsStatusDialogOpen(false); setEditingDocument(null); }}>Cancel</Button>
+              <Button onClick={handleStatusChange}>Save Status</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </>
   );
 }
