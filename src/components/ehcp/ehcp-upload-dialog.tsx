@@ -25,16 +25,17 @@ interface EhcpUploadDialogProps {
   onOpenChange: (open: boolean) => void;
   onUploadComplete: () => void;
   trigger?: React.ReactNode;
+  actingUserId: string | undefined; // Add actingUserId prop
 }
 
-export function EhcpUploadDialog({ isOpen, onOpenChange, onUploadComplete, trigger }: EhcpUploadDialogProps) {
+export function EhcpUploadDialog({ isOpen, onOpenChange, onUploadComplete, trigger, actingUserId }: EhcpUploadDialogProps) {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedFile, setSelectedFile]  = useState<File | null>(null);
   const [fileName, setFileName] = useState('');
   const [description, setDescription] = useState('');
   const [status, setStatus] = useState<'Current' | 'Previous'>('Current');
-  const [associatedUserId, setAssociatedUserId] = useState('');
+  const [associatedUserIdInput, setAssociatedUserIdInput] = useState(''); // Renamed for clarity
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -42,17 +43,17 @@ export function EhcpUploadDialog({ isOpen, onOpenChange, onUploadComplete, trigg
       if (!['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'].includes(file.type)) {
         toast({ variant: "destructive", title: "Invalid File Type", description: "Only PDF and DOCX files are allowed." });
         setSelectedFile(null);
-        event.target.value = ""; // Clear the input
+        event.target.value = ""; 
         return;
       }
-      if (file.size > 10 * 1024 * 1024) { // 10MB limit
+      if (file.size > 10 * 1024 * 1024) { 
         toast({ variant: "destructive", title: "File Too Large", description: "Maximum file size is 10MB." });
         setSelectedFile(null);
-        event.target.value = ""; // Clear the input
+        event.target.value = ""; 
         return;
       }
       setSelectedFile(file);
-      setFileName(file.name.replace(/\.[^/.]+$/, "")); // Pre-fill name without extension
+      setFileName(file.name.replace(/\.[^/.]+$/, "")); 
     } else {
       setSelectedFile(null);
     }
@@ -63,14 +64,18 @@ export function EhcpUploadDialog({ isOpen, onOpenChange, onUploadComplete, trigg
     setFileName('');
     setDescription('');
     setStatus('Current');
-    setAssociatedUserId('');
+    setAssociatedUserIdInput('');
     const fileInput = document.getElementById('ehcpFile') as HTMLInputElement;
     if (fileInput) fileInput.value = "";
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedFile || !fileName.trim() || !status || !associatedUserId.trim()) {
+    if (!actingUserId) {
+      toast({ variant: 'destructive', title: 'Authentication Error', description: 'Cannot upload document without an authenticated admin user.' });
+      return;
+    }
+    if (!selectedFile || !fileName.trim() || !status || !associatedUserIdInput.trim()) {
       toast({ variant: 'destructive', title: 'Missing Fields', description: 'Please provide a file, name, status, and associated user ID.' });
       return;
     }
@@ -81,14 +86,14 @@ export function EhcpUploadDialog({ isOpen, onOpenChange, onUploadComplete, trigg
     formData.append('name', fileName.trim());
     formData.append('description', description.trim());
     formData.append('status', status);
-    formData.append('associatedUserId', associatedUserId.trim());
+    formData.append('associatedUserId', associatedUserIdInput.trim());
 
-    const result = await addEhcpDocument(formData);
+    const result = await addEhcpDocument(formData, actingUserId); // Pass actingUserId
 
     if (result.success) {
       toast({ title: 'Upload Successful', description: `"${fileName}" has been uploaded.` });
       onUploadComplete();
-      onOpenChange(false); // Close dialog
+      onOpenChange(false); 
       resetForm();
     } else {
       toast({ variant: 'destructive', title: 'Upload Failed', description: result.error || 'An unknown error occurred.' });
@@ -121,8 +126,8 @@ export function EhcpUploadDialog({ isOpen, onOpenChange, onUploadComplete, trigg
           </div>
 
           <div>
-            <Label htmlFor="associatedUserId">Associated User ID (Student/Client)</Label>
-            <Input id="associatedUserId" value={associatedUserId} onChange={(e) => setAssociatedUserId(e.target.value)} className="mt-1" placeholder="Enter the User ID this document pertains to" required />
+            <Label htmlFor="associatedUserIdInput">Associated User ID (Student/Client)</Label>
+            <Input id="associatedUserIdInput" value={associatedUserIdInput} onChange={(e) => setAssociatedUserIdInput(e.target.value)} className="mt-1" placeholder="Enter the User ID this document pertains to" required />
           </div>
 
           <div>
@@ -147,7 +152,7 @@ export function EhcpUploadDialog({ isOpen, onOpenChange, onUploadComplete, trigg
             <Button type="button" variant="outline" onClick={() => { onOpenChange(false); resetForm(); }} disabled={isSubmitting}>
               Cancel
             </Button>
-            <Button type="submit" disabled={isSubmitting || !selectedFile}>
+            <Button type="submit" disabled={isSubmitting || !selectedFile || !actingUserId}>
               {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UploadCloud className="mr-2 h-4 w-4" />}
               Upload Document
             </Button>

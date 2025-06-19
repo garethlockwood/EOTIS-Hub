@@ -52,13 +52,19 @@ export default function EhcpPage() {
   const [isStatusDialogOpen, setIsStatusDialogOpen] = useState(false);
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<EHCPDocument['status'] | ''>('');
-  const [isDeleting, setIsDeleting] = useState<string | null>(null); // docId of deleting item
-  const [isUpdatingStatus, setIsUpdatingStatus] = useState<string | null>(null); // docId of item being updated
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState<string | null>(null);
 
   const fetchDocuments = useCallback(async () => {
+    if (!user?.id) {
+      setError('User not authenticated. Cannot fetch documents.');
+      setIsLoading(false);
+      setDocuments([]); // Clear documents if user is not authenticated
+      return;
+    }
     setIsLoading(true);
     setError(null);
-    const result = await getEhcpDocuments();
+    const result = await getEhcpDocuments(user.id);
     if (result.documents) {
       setDocuments(result.documents);
     } else {
@@ -66,11 +72,17 @@ export default function EhcpPage() {
       setDocuments([]);
     }
     setIsLoading(false);
-  }, []);
+  }, [user]);
 
   useEffect(() => {
-    fetchDocuments();
-  }, [fetchDocuments]);
+    if (user) { // Only fetch if user is available
+      fetchDocuments();
+    } else {
+      setIsLoading(false); // Not loading if no user
+      setDocuments([]); // Ensure documents are cleared if user logs out
+      setError('User not authenticated. Please log in to view documents.');
+    }
+  }, [user, fetchDocuments]);
 
   const filteredDocuments = useMemo(() => {
     return documents.filter(doc => {
@@ -92,14 +104,18 @@ export default function EhcpPage() {
   };
 
   const handleDelete = async (doc: EHCPDocument) => {
+    if (!user?.id) {
+      toast({ variant: "destructive", title: "Authentication Error", description: "Cannot perform delete action." });
+      return;
+    }
     setIsDeleting(doc.docId);
-    const result = await deleteEhcpDocument(doc.docId, doc.storagePath);
+    const result = await deleteEhcpDocument(doc.docId, doc.storagePath, user.id);
     if (result.success) {
       toast({
         title: "Document Deleted",
         description: `"${doc.name}" has been removed. ${result.error || ''}`,
       });
-      await fetchDocuments(); // Re-fetch to update list
+      await fetchDocuments(); 
     } else {
       toast({
         variant: "destructive",
@@ -117,17 +133,20 @@ export default function EhcpPage() {
   };
 
   const handleStatusUpdate = async () => {
-    if (!editingDocument || !selectedStatus) return;
+    if (!editingDocument || !selectedStatus || !user?.id) {
+      toast({ variant: "destructive", title: "Error", description: "Cannot update status. Required information missing or user not authenticated." });
+      return;
+    }
     setIsUpdatingStatus(editingDocument.docId);
     
-    const result = await updateEhcpDocumentStatus(editingDocument.docId, selectedStatus as EHCPDocument['status']);
+    const result = await updateEhcpDocumentStatus(editingDocument.docId, selectedStatus as EHCPDocument['status'], user.id);
     
     if (result.success) {
       toast({
         title: "Status Updated",
         description: `Status for "${editingDocument.name}" changed to ${selectedStatus}.`,
       });
-      await fetchDocuments(); // Re-fetch
+      await fetchDocuments(); 
     } else {
       toast({
         variant: "destructive",
@@ -144,7 +163,7 @@ export default function EhcpPage() {
     <>
       <PageHeader title="EHCP Documents" description="Manage current and previous Education, Health and Care Plans.">
         {user?.isAdmin && (
-          <Button onClick={() => setIsUploadDialogOpen(true)}>
+          <Button onClick={() => setIsUploadDialogOpen(true)} disabled={!user}>
             <PlusCircle className="mr-2 h-4 w-4" /> Upload EHCP Document
           </Button>
         )}
@@ -159,6 +178,7 @@ export default function EhcpPage() {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10 w-full"
+            disabled={!user}
           />
         </div>
       </div>
@@ -175,12 +195,12 @@ export default function EhcpPage() {
             <div>
               <h3 className="font-semibold text-destructive">Error Loading Documents</h3>
               <p className="text-destructive/80">{error}</p>
-              <Button variant="outline" size="sm" onClick={fetchDocuments} className="mt-2">Try Again</Button>
+              {user && <Button variant="outline" size="sm" onClick={fetchDocuments} className="mt-2">Try Again</Button>}
             </div>
           </CardContent>
         </Card>
       )}
-      {!isLoading && !error && (
+      {!isLoading && !error && user && (
         <Card className="shadow-lg">
           <CardContent className="p-0">
             <Table>
@@ -286,6 +306,7 @@ export default function EhcpPage() {
           isOpen={isUploadDialogOpen}
           onOpenChange={setIsUploadDialogOpen}
           onUploadComplete={fetchDocuments}
+          actingUserId={user.id} // Pass actingUserId to the upload dialog
         />
       )}
       
@@ -317,7 +338,7 @@ export default function EhcpPage() {
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => { setIsStatusDialogOpen(false); setEditingDocument(null); }} disabled={isUpdatingStatus === editingDocument.docId}>Cancel</Button>
-              <Button onClick={handleStatusUpdate} disabled={isUpdatingStatus === editingDocument.docId || !selectedStatus || selectedStatus === editingDocument.status}>
+              <Button onClick={handleStatusUpdate} disabled={isUpdatingStatus === editingDocument.docId || !selectedStatus || selectedStatus === editingDocument.status || !user?.id}>
                 {isUpdatingStatus === editingDocument.docId ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
                 Save Status
               </Button>
@@ -328,4 +349,3 @@ export default function EhcpPage() {
     </>
   );
 }
-

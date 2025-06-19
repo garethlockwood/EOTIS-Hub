@@ -2,29 +2,28 @@
 'use server';
 
 import { auth, db, storage } from '@/lib/firebase';
-import { collection, addDoc, getDocs, deleteDoc, doc, updateDoc, query, orderBy, Timestamp, getDoc, where } from 'firebase/firestore';
+import { collection, addDoc, getDocs, deleteDoc, doc, updateDoc, query, orderBy, Timestamp, getDoc, where, setDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import type { EHCPDocument } from '@/types';
 import { revalidatePath } from 'next/cache';
 
 // Helper to check admin status
 async function isAdmin(uid: string): Promise<boolean> {
+  if (!uid) return false; // Ensure UID is provided
   const userDocRef = doc(db, 'users', uid);
   const userDocSnap = await getDoc(userDocRef);
   return userDocSnap.exists() && userDocSnap.data()?.isAdmin === true;
 }
 
-export async function getEhcpDocuments(): Promise<{ documents?: EHCPDocument[]; error?: string }> {
-  const currentUser = auth.currentUser;
-  if (!currentUser) {
+export async function getEhcpDocuments(actingUserId: string): Promise<{ documents?: EHCPDocument[]; error?: string }> {
+  if (!actingUserId) {
     return { error: 'User not authenticated.' };
   }
 
   try {
-    // Admins and non-admins now have the same read logic: only see documents associated with their UID.
     const q = query(
       collection(db, 'ehcpDocuments'),
-      where('associatedUserId', '==', currentUser.uid),
+      where('associatedUserId', '==', actingUserId), // Filter by the acting user's ID
       orderBy('uploadDate', 'desc')
     );
 
@@ -59,12 +58,11 @@ interface AddEhcpDocumentResult {
   document?: EHCPDocument;
 }
 
-export async function addEhcpDocument(formData: FormData): Promise<AddEhcpDocumentResult> {
-  const currentUser = auth.currentUser;
-  if (!currentUser) {
+export async function addEhcpDocument(formData: FormData, actingUserId: string): Promise<AddEhcpDocumentResult> {
+  if (!actingUserId) {
     return { error: 'User not authenticated.' };
   }
-  if (!(await isAdmin(currentUser.uid))) {
+  if (!(await isAdmin(actingUserId))) {
     return { error: 'User does not have admin privileges.' };
   }
 
@@ -83,8 +81,22 @@ export async function addEhcpDocument(formData: FormData): Promise<AddEhcpDocume
     return { error: 'Invalid file type. Only PDF and DOCX are allowed.' };
   }
   
+  // Fetch uploader's display name/email
+  let uploaderName = 'Unknown Admin';
+  try {
+    const actingUserDocRef = doc(db, 'users', actingUserId);
+    const actingUserDocSnap = await getDoc(actingUserDocRef);
+    if (actingUserDocSnap.exists()) {
+      const userData = actingUserDocSnap.data();
+      uploaderName = userData?.name || userData?.email || 'Admin';
+    }
+  } catch (e) {
+    console.error("Error fetching uploader's name: ", e);
+  }
+
+
   const fileType = file.type === 'application/pdf' ? 'pdf' : 'docx';
-  const newDocFirestoreRef = doc(collection(db, 'ehcpDocuments')); // Generate ID upfront for storage path
+  const newDocFirestoreRef = doc(collection(db, 'ehcpDocuments')); 
   const documentId = newDocFirestoreRef.id;
   const storagePath = `ehcp_documents/${documentId}/${file.name}`;
   const storageRef = ref(storage, storagePath);
@@ -100,15 +112,15 @@ export async function addEhcpDocument(formData: FormData): Promise<AddEhcpDocume
       fileUrl: downloadURL,
       storagePath,
       fileType,
-      uploaderUid: currentUser.uid,
-      uploaderName: currentUser.displayName || currentUser.email,
+      uploaderUid: actingUserId, // Use actingUserId
+      uploaderName: uploaderName, // Use fetched name
       originalFileName: file.name,
       uploadDate: Timestamp.now(),
       associatedUserId: associatedUserId,
-      docId: documentId, // Store the ID in the document as well
+      docId: documentId, 
     };
 
-    await setDoc(newDocFirestoreRef, newDocData); // Use setDoc with the generated ref
+    await setDoc(newDocFirestoreRef, newDocData); 
     
     revalidatePath('/ehcp');
 
@@ -125,12 +137,11 @@ export async function addEhcpDocument(formData: FormData): Promise<AddEhcpDocume
   }
 }
 
-export async function deleteEhcpDocument(docId: string, storagePath: string): Promise<{ success?: boolean; error?: string }> {
-  const currentUser = auth.currentUser;
-  if (!currentUser) {
+export async function deleteEhcpDocument(docId: string, storagePath: string, actingUserId: string): Promise<{ success?: boolean; error?: string }> {
+  if (!actingUserId) {
     return { error: 'User not authenticated.' };
   }
-  if (!(await isAdmin(currentUser.uid))) {
+  if (!(await isAdmin(actingUserId))) {
     return { error: 'User does not have admin privileges.' };
   }
 
@@ -142,7 +153,7 @@ export async function deleteEhcpDocument(docId: string, storagePath: string): Pr
     
     revalidatePath('/ehcp');
     return { success: true };
-  } catch (error: any) {
+  } catch (error:any) {
     console.error('Error deleting EHCP document:', error);
     if (error.code === 'storage/object-not-found') {
         try {
@@ -157,12 +168,11 @@ export async function deleteEhcpDocument(docId: string, storagePath: string): Pr
   }
 }
 
-export async function updateEhcpDocumentStatus(docId: string, newStatus: 'Current' | 'Previous'): Promise<{ success?: boolean; error?: string }> {
-  const currentUser = auth.currentUser;
-  if (!currentUser) {
+export async function updateEhcpDocumentStatus(docId: string, newStatus: 'Current' | 'Previous', actingUserId: string): Promise<{ success?: boolean; error?: string }> {
+  if (!actingUserId) {
     return { error: 'User not authenticated.' };
   }
-  if (!(await isAdmin(currentUser.uid))) {
+  if (!(await isAdmin(actingUserId))) {
     return { error: 'User does not have admin privileges.' };
   }
 
@@ -175,4 +185,3 @@ export async function updateEhcpDocumentStatus(docId: string, newStatus: 'Curren
     return { error: error.message || 'Failed to update status.' };
   }
 }
-
