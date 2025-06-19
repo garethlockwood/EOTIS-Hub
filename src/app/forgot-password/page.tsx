@@ -12,7 +12,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import Link from 'next/link';
 import { Loader2, Mail } from 'lucide-react';
 import Image from 'next/image';
-import { useToast } from "@/hooks/use-toast";
+import { useAuth } from '@/hooks/use-auth'; // Import useAuth
 
 const forgotPasswordSchema = z.object({
   email: z.string().email({ message: 'Invalid email address.' }),
@@ -21,9 +21,8 @@ const forgotPasswordSchema = z.object({
 type ForgotPasswordFormValues = z.infer<typeof forgotPasswordSchema>;
 
 export default function ForgotPasswordPage() {
-  const [isLoading, setIsLoading] = useState(false);
+  const { sendPasswordResetEmail, isLoading } = useAuth(); // Use from context
   const [submitted, setSubmitted] = useState(false);
-  const { toast } = useToast();
 
   const form = useForm<ForgotPasswordFormValues>({
     resolver: zodResolver(forgotPasswordSchema),
@@ -33,16 +32,9 @@ export default function ForgotPasswordPage() {
   });
 
   const onSubmit: SubmitHandler<ForgotPasswordFormValues> = async (data) => {
-    setIsLoading(true);
-    // Simulate API call to request password reset
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    console.log('Password reset requested for:', data.email);
-    setIsLoading(false);
-    setSubmitted(true);
-    toast({
-        title: "Password Reset Email Sent",
-        description: `If an account exists for ${data.email}, a password reset link has been sent. (This is a mock response)`,
-    });
+    await sendPasswordResetEmail(data.email);
+    // Toast is handled by sendPasswordResetEmail in AuthContext
+    setSubmitted(true); // Still set submitted to change UI text
   };
 
   return (
@@ -50,12 +42,12 @@ export default function ForgotPasswordPage() {
       <Card className="w-full max-w-md shadow-2xl">
         <CardHeader className="text-center">
            <div className="mx-auto mb-4">
-             <Image src="https://placehold.co/80x80.png?text=LOGO" alt="EOTIS Hub Logo" width={80} height={80} data-ai-hint="logo placeholder" />
+             <Image src="https://placehold.co/80x80.png?text=LOGO" alt="EOTIS Hub Logo" width={80} height={80} data-ai-hint="logo placeholder"/>
            </div>
           <CardTitle className="text-3xl font-headline">Forgot Password?</CardTitle>
           <CardDescription>
             {submitted 
-              ? "Check your email for a password reset link. If you don't see it, check your spam folder."
+              ? "If an account with that email exists, a password reset link has been sent. Please check your inbox (and spam folder)."
               : "Enter your email address and we'll send you a link to reset your password."}
           </CardDescription>
         </CardHeader>

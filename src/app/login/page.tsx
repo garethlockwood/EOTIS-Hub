@@ -17,7 +17,7 @@ import Image from 'next/image';
 
 const loginSchema = z.object({
   email: z.string().email({ message: 'Invalid email address.' }),
-  password: z.string().min(6, { message: 'Password must be at least 6 characters.' }),
+  password: z.string().min(1, { message: 'Password cannot be empty.' }), // Min 1 to ensure it's not empty, actual check in context
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
@@ -35,6 +35,7 @@ export default function LoginPage() {
 
   const onSubmit: SubmitHandler<LoginFormValues> = async (data) => {
     await login(data.email, data.password);
+    // Toast for success/failure is handled within the login function in AuthContext
   };
 
   return (
@@ -42,7 +43,7 @@ export default function LoginPage() {
       <Card className="w-full max-w-md shadow-2xl">
         <CardHeader className="text-center">
           <div className="mx-auto mb-4">
-            <Image src="https://placehold.co/80x80.png?text=LOGO" alt="EOTIS Hub Logo" width={80} height={80} data-ai-hint="logo placeholder" />
+            <Image src="https://placehold.co/80x80.png?text=LOGO" alt="EOTIS Hub Logo" width={80} height={80} data-ai-hint="logo placeholder"/>
           </div>
           <CardTitle className="text-3xl font-headline">Welcome Back</CardTitle>
           <CardDescription>Sign in to your EOTIS Hub account.</CardDescription>
@@ -88,14 +89,14 @@ export default function LoginPage() {
             </form>
           </Form>
         </CardContent>
-        <CardFooter className="flex flex-col items-center text-sm">
-          <p className="text-muted-foreground">
-            This system may offer Multi-Factor Authentication (MFA) with Microsoft Authenticator for enhanced security.
+        <CardFooter className="flex flex-col items-center text-sm space-y-2">
+           <p className="text-muted-foreground text-center">
+            This system may offer Multi-Factor Authentication (MFA) for enhanced security.
           </p>
-          <div className="mt-4">
+          <div className="mt-2">
             <span className="text-muted-foreground">Don't have an account? </span>
             <Link href="/signup" passHref>
-               <Button variant="link" className="p-0 h-auto">Sign Up (Placeholder)</Button>
+               <Button variant="link" className="p-0 h-auto">Sign Up</Button>
             </Link>
           </div>
         </CardFooter>

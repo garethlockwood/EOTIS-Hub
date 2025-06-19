@@ -1,7 +1,7 @@
 // src/app/(app)/profile/page.tsx
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { PageHeader } from '@/components/common/page-header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -18,8 +18,9 @@ import * as z from 'zod';
 import Image from 'next/image';
 import { useToast } from '@/hooks/use-toast';
 import type { User } from '@/types';
-import { storage } from '@/lib/firebase'; // Import Firebase storage
+import { storage } from '@/lib/firebase';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { useSearchParams } from 'next/navigation';
 
 const profileSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters.').optional(),
@@ -46,9 +47,10 @@ const mfaCodeSchema = z.object({
 type MfaCodeFormValues = z.infer<typeof mfaCodeSchema>;
 
 
-export default function ProfilePage() {
+function ProfilePageContent() {
   const { user, updateProfile, changePassword, theme, setTheme, isLoading: authLoading, enableMfa, confirmMfa, disableMfa } = useAuth();
   const { toast } = useToast();
+  const searchParams = useSearchParams();
   
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
@@ -56,6 +58,7 @@ export default function ProfilePage() {
   const [mfaQrCodeUrl, setMfaQrCodeUrl] = useState<string | null>(null);
   const [mfaRecoveryCodes, setMfaRecoveryCodes] = useState<string[]>([]);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(user?.avatarUrl || null);
+  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'profile');
 
 
   const profileForm = useForm<ProfileFormValues>({
@@ -119,14 +122,10 @@ export default function ProfilePage() {
 
         await new Promise<void>((resolve, reject) => {
           uploadTask.on('state_changed',
-            (snapshot) => {
-              // Optional: handle progress
-              // const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-              // console.log('Upload is ' + progress + '% done');
-            },
+            (snapshot) => {},
             (error) => {
               console.error("Firebase Storage upload error:", error);
-              toast({ variant: "destructive", title: "Avatar Upload Failed", description: "Could not upload image to cloud storage." });
+              toast({ variant: "destructive", title: "Avatar Upload Failed", description: "Could not upload image." });
               reject(error);
             },
             async () => {
@@ -136,14 +135,13 @@ export default function ProfilePage() {
                 resolve();
               } catch (error) {
                  console.error("Error getting download URL:", error);
-                 toast({ variant: "destructive", title: "Avatar URL Error", description: "Could not get image URL after upload." });
+                 toast({ variant: "destructive", title: "Avatar URL Error", description: "Could not get image URL." });
                  reject(error);
               }
             }
           );
         });
       } catch (error) {
-        // Error already handled and toasted by uploadTask.on error handler or getDownloadURL catch
         setIsSavingProfile(false);
         return;
       }
@@ -155,35 +153,41 @@ export default function ProfilePage() {
         toast({ title: "Profile Updated", description: "Your profile has been successfully updated." });
       } catch (error) {
         console.error("Error updating profile context:", error);
-        toast({ variant: "destructive", title: "Profile Update Error", description: "Failed to update profile locally." });
+        toast({ variant: "destructive", title: "Profile Update Error", description: (error as Error).message || "Failed to update profile." });
       }
     } else {
       toast({ title: "No Changes", description: "No changes were detected in your profile." });
     }
     
     setIsSavingProfile(false);
+    profileForm.reset({ name: user?.name, avatarFile: undefined }); // Reset with current name, clear file
+    setAvatarPreview(updatePayload.avatarUrl || user?.avatarUrl || null); // Ensure preview updates
   };
 
   const onPasswordSubmit: SubmitHandler<PasswordFormValues> = async (data) => {
     setIsChangingPassword(true);
-    await changePassword(data.currentPassword, data.newPassword);
-    // Toast is now handled by useAuth hook based on promise resolution or on page after await
-    // toast({ title: "Password Change Request", description: "Password change attempt submitted (mocked)." });
-    passwordForm.reset();
+    try {
+      await changePassword(data.currentPassword, data.newPassword);
+      // Toast is handled by changePassword in AuthContext
+      passwordForm.reset();
+    } catch (error) {
+      // Error should be caught and toasted by changePassword, but catch here as a fallback
+       toast({ variant: "destructive", title: "Error", description: (error as Error).message || "Failed to change password." });
+    }
     setIsChangingPassword(false);
   };
   
   const handleEnableMfa = async () => {
     setIsSettingUpMfa(true);
+    mfaCodeForm.reset();
     try {
       const { qrCodeUrl, recoveryCodes } = await enableMfa();
       setMfaQrCodeUrl(qrCodeUrl);
       setMfaRecoveryCodes(recoveryCodes);
-      mfaCodeForm.reset();
     } catch (error) {
       toast({ variant: "destructive", title: "MFA Error", description: (error as Error).message || "Could not start MFA setup." });
-      setIsSettingUpMfa(false);
     }
+    setIsSettingUpMfa(false); // QR is shown, user needs to act.
   };
 
   const onMfaCodeSubmit: SubmitHandler<MfaCodeFormValues> = async (data) => {
@@ -192,9 +196,9 @@ export default function ProfilePage() {
       await confirmMfa(data.code);
       setMfaQrCodeUrl(null); 
       setMfaRecoveryCodes([]);
-      toast({ title: "MFA Setup Complete", description: "Multi-Factor Authentication has been enabled." });
+      // Toast is handled by confirmMfa in AuthContext
     } catch (error) {
-      toast({ variant: "destructive", title: "MFA Confirmation Failed", description: (error as Error).message || "The MFA code was invalid." });
+      // Toast is handled by confirmMfa in AuthContext
     }
     setIsSettingUpMfa(false);
     mfaCodeForm.reset();
@@ -204,15 +208,16 @@ export default function ProfilePage() {
     setMfaQrCodeUrl(null);
     setMfaRecoveryCodes([]);
     setIsSettingUpMfa(false); 
+    mfaCodeForm.reset();
   };
   
   const handleDisableMfa = async () => {
     setIsSettingUpMfa(true);
     try {
       await disableMfa();
-      toast({ title: "MFA Disabled", description: "Multi-Factor Authentication has been disabled." });
+      // Toast is handled by disableMfa in AuthContext
     } catch (error) {
-      toast({ variant: "destructive", title: "MFA Error", description: (error as Error).message || "Could not disable MFA." });
+      // Toast is handled by disableMfa in AuthContext
     }
     setIsSettingUpMfa(false);
   };
@@ -226,6 +231,13 @@ export default function ProfilePage() {
     }
   }, [user, profileForm, avatarPreview]);
 
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab && ['profile', 'security', 'appearance'].includes(tab)) {
+      setActiveTab(tab);
+    }
+  }, [searchParams]);
+
 
   if (authLoading || !user) {
     return (
@@ -238,10 +250,14 @@ export default function ProfilePage() {
   return (
     <>
       <PageHeader title="My Profile & Settings" description="Manage your account details, security, and application preferences." />
-      <Tabs defaultValue="profile" className="space-y-4" onValueChange={() => {
-          if (!isSavingProfile) setAvatarPreview(user.avatarUrl || null);
-          profileForm.reset({ name: user.name || '', avatarFile: undefined });
-      }}>
+      <Tabs value={activeTab} onValueChange={(value) => {
+          setActiveTab(value);
+          window.history.replaceState(null, '', `/profile?tab=${value}`);
+          if (!isSavingProfile && value === 'profile') {
+            setAvatarPreview(user.avatarUrl || null);
+            profileForm.reset({ name: user.name || '', avatarFile: undefined });
+          }
+      }} className="space-y-4">
         <TabsList>
           <TabsTrigger value="profile"><UserIcon className="mr-2 h-4 w-4" />Profile</TabsTrigger>
           <TabsTrigger value="security"><Shield className="mr-2 h-4 w-4" />Security</TabsTrigger>
@@ -258,7 +274,7 @@ export default function ProfilePage() {
               <form onSubmit={profileForm.handleSubmit(onProfileSubmit)} className="space-y-6">
                 <div className="flex items-center space-x-6">
                   <Avatar className="h-24 w-24">
-                    <AvatarImage src={avatarPreview || undefined} alt={user.name || 'User'} data-ai-hint="user avatar" />
+                    <AvatarImage src={avatarPreview || undefined} alt={user.name || 'User'} data-ai-hint="user avatar"/>
                     <AvatarFallback>{user.name ? user.name.substring(0,2).toUpperCase() : 'U'}</AvatarFallback>
                   </Avatar>
                   <div className="flex-grow">
@@ -298,8 +314,8 @@ export default function ProfilePage() {
                   <p className="text-xs text-muted-foreground mt-1">Email address cannot be changed.</p>
                 </div>
                 
-                <Button type="submit" disabled={isSavingProfile || (!profileForm.formState.isDirty && !profileForm.getValues('avatarFile'))}>
-                  {isSavingProfile ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                <Button type="submit" disabled={isSavingProfile || authLoading || (!profileForm.formState.isDirty && !profileForm.getValues('avatarFile'))}>
+                  {isSavingProfile || authLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                   Save Changes
                 </Button>
               </form>
@@ -331,8 +347,8 @@ export default function ProfilePage() {
                     <Input id="confirmPassword" type="password" {...passwordForm.register('confirmPassword')} className="mt-1" />
                     {passwordForm.formState.errors.confirmPassword && <p className="text-sm text-destructive mt-1">{passwordForm.formState.errors.confirmPassword.message}</p>}
                   </div>
-                  <Button type="submit" disabled={isChangingPassword}>
-                    {isChangingPassword ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <KeyRound className="mr-2 h-4 w-4" />}
+                  <Button type="submit" disabled={isChangingPassword || authLoading}>
+                    {isChangingPassword || authLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <KeyRound className="mr-2 h-4 w-4" />}
                     Change Password
                   </Button>
                 </form>
@@ -342,22 +358,22 @@ export default function ProfilePage() {
             <Card>
               <CardHeader>
                 <CardTitle>Multi-Factor Authentication (MFA)</CardTitle>
-                <CardDescription>Enhance your account security using Microsoft Authenticator or a compatible app.</CardDescription>
+                <CardDescription>Enhance your account security using an authenticator app (e.g., Google Authenticator, Authy).</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 {user.isMfaEnabled ? (
                   <div>
                     <p className="text-green-600 font-medium mb-2">MFA is currently enabled.</p>
-                    <Button variant="destructive" onClick={handleDisableMfa} disabled={isSettingUpMfa}>
-                      {isSettingUpMfa ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                    <Button variant="destructive" onClick={handleDisableMfa} disabled={isSettingUpMfa || authLoading}>
+                      {isSettingUpMfa || authLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                       Disable MFA
                     </Button>
                   </div>
                 ) : mfaQrCodeUrl ? (
                   <>
-                    <p>1. Scan the QR code with Microsoft Authenticator or a compatible TOTP app:</p>
+                    <p>1. Scan the QR code with your authenticator app:</p>
                     <div className="flex justify-center my-4">
-                         <Image src={mfaQrCodeUrl} alt="MFA QR Code" width={200} height={200} data-ai-hint="qr code" />
+                         <Image src={mfaQrCodeUrl} alt="MFA QR Code" width={200} height={200} data-ai-hint="qr code"/>
                     </div>
                     <p>2. Enter the 6-digit code from your authenticator app:</p>
                     <form onSubmit={mfaCodeForm.handleSubmit(onMfaCodeSubmit)} className="flex items-start gap-2">
@@ -365,11 +381,11 @@ export default function ProfilePage() {
                             <Input placeholder="123456" {...mfaCodeForm.register('code')} />
                             {mfaCodeForm.formState.errors.code && <p className="text-sm text-destructive mt-1">{mfaCodeForm.formState.errors.code.message}</p>}
                         </div>
-                        <Button type="submit" disabled={isSettingUpMfa}>
-                            {isSettingUpMfa ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <QrCode className="mr-2 h-4 w-4" />}
+                        <Button type="submit" disabled={isSettingUpMfa || authLoading}>
+                            {isSettingUpMfa || authLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <QrCode className="mr-2 h-4 w-4" />}
                             Verify & Enable
                         </Button>
-                        <Button type="button" variant="outline" onClick={handleCancelMfaSetup} disabled={isSettingUpMfa}>Cancel</Button>
+                        <Button type="button" variant="outline" onClick={handleCancelMfaSetup} disabled={isSettingUpMfa || authLoading}>Cancel</Button>
                     </form>
                     {mfaRecoveryCodes.length > 0 && (
                       <div className="mt-4 p-3 bg-muted rounded-md">
@@ -378,14 +394,15 @@ export default function ProfilePage() {
                         <ul className="list-disc list-inside mt-2 font-mono text-sm">
                           {mfaRecoveryCodes.map(code => <li key={code}>{code}</li>)}
                         </ul>
+                         <Button variant="outline" size="sm" className="mt-2" onClick={() => navigator.clipboard.writeText(mfaRecoveryCodes.join('\n'))}>Copy Codes</Button>
                       </div>
                     )}
                   </>
                 ) : (
                   <div>
                     <p className="text-muted-foreground mb-2">MFA is currently disabled.</p>
-                    <Button onClick={handleEnableMfa} disabled={isSettingUpMfa}>
-                      {isSettingUpMfa ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                    <Button onClick={handleEnableMfa} disabled={isSettingUpMfa || authLoading}>
+                      {isSettingUpMfa || authLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                       Enable MFA
                     </Button>
                   </div>
@@ -420,4 +437,12 @@ export default function ProfilePage() {
       </Tabs>
     </>
   );
+}
+
+export default function ProfilePage() {
+  return (
+    <Suspense fallback={<div className="flex h-screen w-screen items-center justify-center"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>}>
+      <ProfilePageContent />
+    </Suspense>
+  )
 }
