@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -12,7 +13,7 @@ import { Form, FormControl, FormField, FormItem, FormMessage } from '@/component
 import { submitQuestion } from './actions';
 import { Bot, User, Loader2, AlertTriangle } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'; // Removed AvatarImage as it's not used for fallback icons
 import { useToast } from "@/hooks/use-toast";
 
 const formSchema = z.object({
@@ -74,7 +75,7 @@ export default function AssistantPage() {
 
   return (
     <>
-      <PageHeader title="AI Assistant" description="Ask questions about the EOTIS platform, EHCP process, and UK educational law." />
+      <PageHeader title="EOTIS AI Assistant" description="Ask questions and get help from EOTIS AI." />
       <div className="flex flex-col h-[calc(100vh-10rem)] md:h-[calc(100vh-12rem)]">
         <Card className="flex-1 flex flex-col shadow-lg">
           <CardHeader>
@@ -146,7 +147,9 @@ export default function AssistantPage() {
                           onKeyDown={(e) => {
                             if (e.key === 'Enter' && !e.shiftKey) {
                               e.preventDefault();
-                              form.handleSubmit(onSubmit)();
+                              if (!form.formState.isSubmitting && form.formState.isValid) {
+                                form.handleSubmit(onSubmit)();
+                              }
                             }
                           }}
                         />
@@ -155,7 +158,7 @@ export default function AssistantPage() {
                     </FormItem>
                   )}
                 />
-                <Button type="submit" disabled={isLoading} size="lg">
+                <Button type="submit" disabled={isLoading || !form.formState.isValid} size="lg">
                   {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                   Send
                 </Button>

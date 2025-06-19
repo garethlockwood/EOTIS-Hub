@@ -1,6 +1,6 @@
 
 import type { NavItem, UpcomingLesson, UnpaidInvoice, ScheduledMeeting, TodoItem, StaffMember, FinancialDocument, ContentDocument, CalendarEvent, EHCPDocument } from '@/types';
-import { LayoutDashboard, CalendarDays, Users, CreditCard, FolderKanban, Sparkles, UserCircle2 as ProfileIcon, ClipboardList } from 'lucide-react'; // Removed Bot icon
+import { LayoutDashboard, CalendarDays, Users, CreditCard, FolderKanban, Sparkles, UserCircle2 as ProfileIcon, ClipboardList } from 'lucide-react';
 
 export const NAV_ITEMS: NavItem[] = [
   { title: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -9,7 +9,7 @@ export const NAV_ITEMS: NavItem[] = [
   { title: 'Finances', href: '/finances', icon: CreditCard },
   { title: 'Content Repository', href: '/repository', icon: FolderKanban },
   { title: 'EHCP Documents', href: '/ehcp', icon: ClipboardList },
-  // AI Assistant removed
+  { title: 'AI Assistant', href: '/assistant', icon: Sparkles },
 ];
 
 export const PLACEHOLDER_TODOS: TodoItem[] = [
