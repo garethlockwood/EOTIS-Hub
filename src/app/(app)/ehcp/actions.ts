@@ -1,7 +1,7 @@
 
 'use server';
 
-import { auth, db, storage } from '@/lib/firebase';
+import { auth, db, storage } from '@/lib/firebase'; // Ensure auth is imported
 import { collection, addDoc, getDocs, deleteDoc, doc, updateDoc, query, orderBy, Timestamp, getDoc, where, setDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import type { EHCPDocument } from '@/types';
@@ -16,12 +16,23 @@ async function isAdmin(uid: string | undefined): Promise<boolean> {
 }
 
 export async function getEhcpDocuments(actingUserId: string): Promise<{ documents?: EHCPDocument[]; error?: string }> {
+  const serverAuthUser = auth.currentUser;
+  console.log(`[Server Action getEhcpDocuments] actingUserId from client: "${actingUserId}"`);
+  console.log(`[Server Action getEhcpDocuments] auth.currentUser on server (UID):`, serverAuthUser ? serverAuthUser.uid : 'null');
+  
+  if (!serverAuthUser) {
+    console.warn('[Server Action getEhcpDocuments] auth.currentUser is null on the server. This likely means request.auth will be null in Firestore rules for queries from this action.');
+  } else if (serverAuthUser.uid !== actingUserId) {
+    console.warn(`[Server Action getEhcpDocuments] Mismatch: serverAuthUser.uid (${serverAuthUser.uid}) !== actingUserId (${actingUserId}). This should not happen if client passes its own ID.`);
+  }
+
+
   if (!actingUserId || typeof actingUserId !== 'string' || actingUserId.trim() === '') {
-    console.error('Error in getEhcpDocuments: Invalid or missing actingUserId provided.');
+    console.error('[Client Input Error] Error in getEhcpDocuments: Invalid or missing actingUserId provided to server action.');
     return { error: 'Invalid user identifier for fetching documents.' };
   }
 
-  console.log(`Fetching EHCP documents for actingUserId: "${actingUserId}"`);
+  console.log(`Fetching EHCP documents for actingUserId: "${actingUserId}" (this is the value used in the Firestore query)`);
 
   try {
     const q = query(
@@ -51,35 +62,37 @@ export async function getEhcpDocuments(actingUserId: string): Promise<{ document
     return { documents };
   } catch (error: any) {
     console.error('Error fetching EHCP documents (actions.ts):', error); 
-    // The console.log for actingUserId is already above, no need to repeat here if error occurs.
 
     let constructedErrorMessage: string;
 
-    if (error.code === 'permission-denied') {
-      // Specific handling for permission-denied
+    if (error.code === 'permission-denied' || error.code === 'PERMISSION_DENIED') {
       let baseMessage = `Missing or insufficient permissions. (Code: ${error.code})`;
       let detailsMessage = "";
+      // Check if error.message is a non-empty, non-"undefined", non-"null" string
       if (typeof error.message === 'string' && error.message.trim() !== '' && error.message.toLowerCase() !== 'undefined' && error.message.toLowerCase() !== 'null') {
         detailsMessage = ` Original Firebase message: "${error.message}"`;
-      } else if (error.details) { 
-        detailsMessage = ` Additional details: "${String(error.details)}"`;
+      } else if (error.details && typeof error.details === 'string' && error.details.trim() !== '') {
+        // Fallback to error.details if message is not useful
+        detailsMessage = ` Additional details from Firebase: "${error.details}"`;
       } else {
-        detailsMessage = " No additional message from Firebase.";
+        detailsMessage = " No additional message details from Firebase.";
       }
       constructedErrorMessage = baseMessage + detailsMessage;
     } else {
-      // General error handling
+      // General error handling for non-permission errors
       let parts = [];
       if (error.code) parts.push(`Code: ${error.code}`);
+      // Check if error.message is a non-empty, non-"undefined", non-"null" string
       if (typeof error.message === 'string' && error.message.trim() !== '' && error.message.toLowerCase() !== 'undefined' && error.message.toLowerCase() !== 'null') {
         parts.push(`Message: "${error.message}"`);
       }
-      if (error.details) parts.push(`Details: "${String(error.details)}"`);
+      if (error.details && typeof error.details === 'string' && error.details.trim() !== '') {
+         parts.push(`Details: "${error.details}"`);
+      }
 
       if (parts.length > 0) {
         constructedErrorMessage = `Failed to fetch documents. ${parts.join('. ')}`;
       } else {
-        // Fallback if no specific details could be extracted from the error object
         constructedErrorMessage = 'Failed to fetch documents due to an unexpected error. Check server logs for the complete error object.';
       }
     }
@@ -217,4 +230,4 @@ export async function updateEhcpDocumentStatus(docId: string, newStatus: 'Curren
     return { error: error.message || 'Failed to update status.' };
   }
 }
-
+    
