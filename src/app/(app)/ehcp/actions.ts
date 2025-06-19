@@ -21,13 +21,13 @@ export async function getEhcpDocuments(actingUserId: string): Promise<{ document
     return { error: 'Invalid user identifier for fetching documents.' };
   }
 
-  console.log(`Fetching EHCP documents for actingUserId: "${actingUserId}"`); // Log the actingUserId
+  console.log(`Fetching EHCP documents for actingUserId: "${actingUserId}"`);
 
   try {
     const q = query(
       collection(db, 'ehcpDocuments'),
       where('associatedUserId', '==', actingUserId),
-      orderBy('uploadDate', 'desc') // orderBy is reinstated
+      orderBy('uploadDate', 'desc')
     );
 
     const querySnapshot = await getDocs(q);
@@ -51,19 +51,39 @@ export async function getEhcpDocuments(actingUserId: string): Promise<{ document
     return { documents };
   } catch (error: any) {
     console.error('Error fetching EHCP documents (actions.ts):', error); 
-    let errorMessage = 'Failed to fetch documents due to an unexpected error.';
-    if (error.code && error.message) {
-      errorMessage = `Error ${error.code}: ${error.message}`;
-    } else if (error.message) {
-      errorMessage = error.message;
-    } else if (error.code) {
-      errorMessage = `Firestore Error Code: ${error.code}`;
-    }
-    // Specifically identify permission denied for clarity, but include original details
+    // The console.log for actingUserId is already above, no need to repeat here if error occurs.
+
+    let constructedErrorMessage: string;
+
     if (error.code === 'permission-denied') {
-        errorMessage = `Missing or insufficient permissions. (Code: ${error.code}). Original message: ${error.message || 'No additional message.'}`;
+      // Specific handling for permission-denied
+      let baseMessage = `Missing or insufficient permissions. (Code: ${error.code})`;
+      let detailsMessage = "";
+      if (typeof error.message === 'string' && error.message.trim() !== '' && error.message.toLowerCase() !== 'undefined' && error.message.toLowerCase() !== 'null') {
+        detailsMessage = ` Original Firebase message: "${error.message}"`;
+      } else if (error.details) { 
+        detailsMessage = ` Additional details: "${String(error.details)}"`;
+      } else {
+        detailsMessage = " No additional message from Firebase.";
+      }
+      constructedErrorMessage = baseMessage + detailsMessage;
+    } else {
+      // General error handling
+      let parts = [];
+      if (error.code) parts.push(`Code: ${error.code}`);
+      if (typeof error.message === 'string' && error.message.trim() !== '' && error.message.toLowerCase() !== 'undefined' && error.message.toLowerCase() !== 'null') {
+        parts.push(`Message: "${error.message}"`);
+      }
+      if (error.details) parts.push(`Details: "${String(error.details)}"`);
+
+      if (parts.length > 0) {
+        constructedErrorMessage = `Failed to fetch documents. ${parts.join('. ')}`;
+      } else {
+        // Fallback if no specific details could be extracted from the error object
+        constructedErrorMessage = 'Failed to fetch documents due to an unexpected error. Check server logs for the complete error object.';
+      }
     }
-    return { error: errorMessage };
+    return { error: constructedErrorMessage };
   }
 }
 
