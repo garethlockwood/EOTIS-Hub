@@ -4,39 +4,36 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Users collection:
-    // - Authenticated users can read their own document.
-    // - Authenticated users can update their own document (e.g., profile info).
-    // - User creation is handled by Firebase Auth; this allows setting initial data.
+    // Users Collection
     match /users/{userId} {
       allow read: if request.auth != null && request.auth.uid == userId;
-      allow update: if request.auth != null && request.auth.uid == userId;
-      allow create: if request.auth != null; // Allows creating user doc after signup
+      allow write: if request.auth != null && request.auth.uid == userId;
     }
 
-    // EHCPDocuments collection:
-    // - 'list' allows authenticated users to query the collection.
-    //   The actual documents returned will be filtered by the query in the server action
-    //   and further secured by the 'get' rule.
-    // - 'get' allows a user to read a document if their UID matches associatedUserId OR if they are an admin.
-    // - 'write' (create, update, delete) is restricted to admins.
+    // EHCP Documents Collection
     match /ehcpDocuments/{docId} {
-      allow list: if request.auth != null;
+      allow list: if request.auth.uid != null; // Check specific uid presence
 
-      // Diagnostic: Temporarily simplify the get rule
       allow get: if request.auth != null &&
-                    resource.data.associatedUserId == request.auth.uid;
-      // Original get rule for reference (to be restored if this diagnostic step works):
-      // allow get: if request.auth != null &&
-      //               (resource.data.associatedUserId == request.auth.uid ||
-      //                (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-      //                 get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isAdmin', false) == true));
+                   (resource.data.associatedUserId == request.auth.uid ||
+                    (
+                      request.auth.uid != null && // Ensure request.auth.uid itself is not null before using it in exists/get
+                      exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+                      get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isAdmin', false) == true
+                    )
+                   );
 
-      allow create, update, delete: if request.auth != null &&
-                 (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-                  get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isAdmin', false) == true);
+      allow write: if request.auth != null &&
+                     (
+                       request.auth.uid != null && // Ensure request.auth.uid itself is not null
+                       exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+                       get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isAdmin', false) == true
+                     );
     }
 
-    // Add rules for other collections as needed here
+    // Default deny all other paths
+    match /{document=**} {
+      allow read, write: if false;
+    }
   }
 }
