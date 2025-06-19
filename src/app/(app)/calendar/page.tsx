@@ -42,10 +42,9 @@ export default function CalendarPage() {
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
   const [currentView, setCurrentView] = useState<'month' | 'week' | 'day'>('month');
   const [zoomLevel, setZoomLevel] = useState(1.0); 
-
   const [isMounted, setIsMounted] = useState(false);
   const { toast } = useToast();
-  
+
   const currentWeekStart = useMemo(() => startOfWeek(selectedDate, { weekStartsOn: 1 }), [selectedDate]);
   const currentWeekEnd = useMemo(() => endOfWeek(selectedDate, { weekStartsOn: 1 }), [selectedDate]);
 
@@ -72,8 +71,6 @@ export default function CalendarPage() {
     };
   }, [events]);
   
-  useEffect(() => setIsMounted(true), []);
-
   const openNewEventDialog = useCallback(() => {
     setEditingEvent(null);
     setIsEventDialogOpen(true);
@@ -87,6 +84,8 @@ export default function CalendarPage() {
     });
     setIsEventDialogOpen(true);
   }, []);
+
+  useEffect(() => setIsMounted(true), []);
 
   if (!isMounted) {
     return (
@@ -112,9 +111,7 @@ export default function CalendarPage() {
   const handleMonthDateSelect = (date: Date | undefined) => {
     if (date) {
       setSelectedDate(date);
-      if (currentView === 'month') { 
-        toast({ title: "Date Selected", description: `Displaying agenda for ${format(date, 'PPP')}.` });
-      }
+      // Removed toast notification from here
     }
   };
 
