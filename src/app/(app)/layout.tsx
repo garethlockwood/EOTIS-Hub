@@ -19,8 +19,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from '@/lib/utils';
-import { AuthProvider, AuthContext } from '@/contexts/auth-context'; // Import AuthProvider and AuthContext
-import { useAuth } from '@/hooks/use-auth'; // Import useAuth
+// AuthProvider is removed from here, AuthContext will still be used by useAuth
+import { useAuth } from '@/hooks/use-auth'; 
 
 interface SidebarNavProps {
   isCollapsed: boolean;
@@ -53,7 +53,7 @@ const SidebarNavigation: React.FC<SidebarNavProps> = ({ isCollapsed, onLinkClick
 
 function AppLayoutContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { user, logout, isLoading: authIsLoading } = useAuth(); // Get user and logout from AuthContext
+  const { user, logout, isLoading: authIsLoading } = useAuth(); 
   const router = useRouter();
 
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
@@ -83,16 +83,13 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
     // router.push('/login'); // useAuth handles redirect
   };
 
-  if (!isMounted || authIsLoading) { // Wait for auth state and mount
-    // You might want a more sophisticated loading spinner here
+  if (!isMounted || authIsLoading) { 
     return <div className="flex h-screen w-screen items-center justify-center"><UserCircle2 className="h-12 w-12 animate-pulse text-primary" /></div>;
   }
   
   if (!user && !pathname.startsWith('/login')) {
       // This check is mostly for completeness, middleware and AuthContext useEffect should handle it
-      // but good for explicit client-side guard during initial load if needed.
-      // router.push('/login'); // Handled by AuthContext effect
-      return <div className="flex h-screen w-screen items-center justify-center"><UserCircle2 className="h-12 w-12 animate-pulse text-primary" /></div>; // Or a redirecting message
+      return <div className="flex h-screen w-screen items-center justify-center"><UserCircle2 className="h-12 w-12 animate-pulse text-primary" /></div>; 
   }
 
 
@@ -237,11 +234,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
   );
 }
 
-// Wrap AppLayoutContent with AuthProvider
+// AuthProvider is no longer wrapping AppLayoutContent here
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <AuthProvider>
-      <AppLayoutContent>{children}</AppLayoutContent>
-    </AuthProvider>
-  );
+  return <AppLayoutContent>{children}</AppLayoutContent>;
 }
