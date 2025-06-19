@@ -1,6 +1,13 @@
 // src/contexts/auth-context.tsx
 'use client';
 
+// ================================================================================================
+// !! IMPORTANT: THIS IS A MOCK AUTHENTICATION CONTEXT !!
+// !! IT USES localStorage FOR USER DATA AND PLAINTEXT PASSWORDS. !!
+// !! DO NOT USE THIS IN A PRODUCTION ENVIRONMENT. !!
+// !! REPLACE WITH A SECURE BACKEND AUTHENTICATION SYSTEM (e.g., Firebase Auth, NextAuth.js). !!
+// ================================================================================================
+
 import type { User } from '@/types';
 import React, { createContext, useState, useEffect, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
@@ -197,8 +204,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     if (userExists) {
       const mockToken = `mocktoken-${Date.now()}`;
       localStorage.setItem('mockPasswordResetToken', JSON.stringify({email, token: mockToken, expires: Date.now() + 3600000 }));
-      console.log(`Mock password reset link: /reset-password?token=${mockToken}`);
-      toast({ title: "Password Reset Email Sent", description: `If an account exists for ${email}, a password reset link has been sent. (Mock: Check console for link).`});
+      // For easier testing, log the full link to the console.
+      const resetUrl = new URL('/reset-password', window.location.origin);
+      resetUrl.searchParams.set('token', mockToken);
+      console.log(`Mock password reset link: ${resetUrl.toString()}`);
+      toast({ title: "Password Reset Email Sent", description: `If an account exists for ${email}, a password reset link has been sent. (Mock: Check console for full link).`});
     } else {
       toast({ title: "Password Reset Email Sent", description: `If an account exists for ${email}, a password reset link has been sent. (Mock: User not found, but sending generic message).`});
     }
