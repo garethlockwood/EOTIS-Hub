@@ -77,7 +77,16 @@ export default function CalendarPage() {
   const openNewEventDialog = useCallback(() => {
     setEditingEvent(null);
     setIsEventDialogOpen(true);
-  }, []); // State setters are stable, so empty dependency array is fine
+  }, []); 
+
+  const openEditEventDialog = useCallback((event: CalendarEvent) => {
+    setEditingEvent({
+      ...event,
+      start: typeof event.start === 'string' ? parseISO(event.start) : event.start,
+      end: typeof event.end === 'string' ? parseISO(event.end) : event.end,
+    });
+    setIsEventDialogOpen(true);
+  }, []);
 
   if (!isMounted) {
     return (
@@ -87,7 +96,7 @@ export default function CalendarPage() {
             <PlusCircle className="mr-2 h-4 w-4" /> Add Event
             </Button>
         </PageHeader>
-        <div className="flex justify-center items-center flex-1 h-[calc(100vh-16rem)]"> {/* Adjusted height */}
+        <div className="flex justify-center items-center flex-1 h-[calc(100vh-16rem)]">
             <p>Loading Calendar...</p>
         </div>
       </>
@@ -103,7 +112,7 @@ export default function CalendarPage() {
   const handleMonthDateSelect = (date: Date | undefined) => {
     if (date) {
       setSelectedDate(date);
-      if (currentView === 'month') { // Only show toast if in month view, as other views select date for navigation
+      if (currentView === 'month') { 
         toast({ title: "Date Selected", description: `Displaying agenda for ${format(date, 'PPP')}.` });
       }
     }
@@ -129,15 +138,6 @@ export default function CalendarPage() {
     setEvents(prevEvents => prevEvents.filter(e => e.id !== eventId));
     toast({ title: "Event Deleted", description: `Event "${eventTitle}" has been deleted.`, variant: "destructive"});
   };
-
-  const openEditEventDialog = useCallback((event: CalendarEvent) => {
-    setEditingEvent({
-      ...event,
-      start: typeof event.start === 'string' ? parseISO(event.start) : event.start,
-      end: typeof event.end === 'string' ? parseISO(event.end) : event.end,
-    });
-    setIsEventDialogOpen(true);
-  }, []);
 
   const handleZoom = (amount: number) => {
     setZoomLevel(prev => Math.max(0.5, Math.min(2.0, prev + amount)));
