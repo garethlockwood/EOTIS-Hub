@@ -17,7 +17,7 @@ import Image from 'next/image';
 
 const loginSchema = z.object({
   email: z.string().email({ message: 'Invalid email address.' }),
-  password: z.string().min(1, { message: 'Password cannot be empty.' }), // Min 1 to ensure it's not empty, actual check in context
+  password: z.string().min(1, { message: 'Password cannot be empty.' }),
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
@@ -35,7 +35,7 @@ export default function LoginPage() {
 
   const onSubmit: SubmitHandler<LoginFormValues> = async (data) => {
     await login(data.email, data.password);
-    // Toast for success/failure is handled within the login function in AuthContext
+    // Toast for success/failure and redirect logic is handled within the login function in AuthContext
   };
 
   return (
@@ -93,12 +93,9 @@ export default function LoginPage() {
            <p className="text-muted-foreground text-center">
             This system may offer Multi-Factor Authentication (MFA) for enhanced security.
           </p>
-          <div className="mt-2">
-            <span className="text-muted-foreground">Don't have an account? </span>
-            <Link href="/signup" passHref>
-               <Button variant="link" className="p-0 h-auto">Sign Up</Button>
-            </Link>
-          </div>
+           <p className="text-xs text-muted-foreground text-center mt-2">
+            If you have trouble signing in, please contact your administrator.
+          </p>
         </CardFooter>
       </Card>
     </div>

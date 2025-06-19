@@ -3,33 +3,45 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 // Add paths that should be publicly accessible without authentication
-const PUBLIC_PATHS = ['/login', '/signup', '/forgot-password', '/reset-password', '/api/auth'];
+const PUBLIC_PATHS = ['/login', '/forgot-password', '/reset-password', '/api/auth'];
+// Paths that require authentication but have special conditions (e.g., force-change-password)
+const CONDITIONALLY_PROTECTED_PATHS = ['/force-change-password'];
+
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-
-  // Check for a mock auth token (replace with your actual auth check)
   const isAuthenticated = request.cookies.has('authUser');
 
-  // If trying to access a protected route and not authenticated, redirect to login
-  if (!isAuthenticated && !PUBLIC_PATHS.some(path => pathname.startsWith(path)) && !pathname.startsWith('/_next/') && !pathname.endsWith('.png') && !pathname.endsWith('.svg')) {
-    const loginUrl = new URL('/login', request.url);
-    // If trying to access a specific page, redirect back to it after login
-    if (pathname !== '/') {
-        loginUrl.searchParams.set('redirect', pathname);
-    }
-    return NextResponse.redirect(loginUrl);
+  // Allow access to public assets and Next.js internals
+  if (pathname.startsWith('/_next/') || pathname.endsWith('.png') || pathname.endsWith('.svg') || pathname.endsWith('.ico')) {
+    return NextResponse.next();
   }
+  
+  const isPublicPath = PUBLIC_PATHS.some(path => pathname.startsWith(path));
 
-  // If authenticated and trying to access public auth pages (login, signup, etc.), redirect to dashboard
-  if (isAuthenticated && PUBLIC_PATHS.some(path => pathname.startsWith(path) && path !== '/api/auth')) {
-    return NextResponse.redirect(new URL('/dashboard', request.url));
+  if (isAuthenticated) {
+    // If authenticated and trying to access public auth pages (login, signup, etc.), redirect to dashboard
+    // unless it's the /force-change-password page, which is handled by context/page logic
+    if (isPublicPath && path !== '/api/auth') {
+        return NextResponse.redirect(new URL('/dashboard', request.url));
+    }
+    // The logic for redirecting to/from /force-change-password will be primarily handled
+    // by the AuthContext and the page itself, as middleware doesn't easily know the `mustChangePassword` state.
+    // Middleware just ensures /force-change-password is protected if not authenticated.
+  } else { // Not authenticated
+    // If trying to access a protected route (not public, not /force-change-password for an initial check)
+    if (!isPublicPath && !CONDITIONALLY_PROTECTED_PATHS.includes(pathname)) {
+        const loginUrl = new URL('/login', request.url);
+        if (pathname !== '/') {
+            loginUrl.searchParams.set('redirect', pathname);
+        }
+        return NextResponse.redirect(loginUrl);
+    }
   }
 
   return NextResponse.next();
 }
 
-// Configure the matcher to run the middleware on relevant paths
 export const config = {
   matcher: [
     /*
@@ -38,9 +50,8 @@ export const config = {
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
      * - files in public folder (e.g. /vite.svg)
-     * Match all paths starting with /app or /login
      * Adjust if your public assets are served differently
      */
-    '/((?!api/|_next/static|_next/image|favicon.ico|.+?/assets/|.+?\\.png$).*)',
+    '/((?!api/|_next/static|_next/image|favicon.ico|.+?/assets/|.+?\\.png$|.+?\\.svg$).*)',
   ],
 };

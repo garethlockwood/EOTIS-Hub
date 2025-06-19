@@ -14,6 +14,7 @@ export interface User {
   email?: string | null;
   avatarUrl?: string | null;
   isMfaEnabled?: boolean;
+  mustChangePassword?: boolean; // Added for force password change flow
 }
 
 export interface TodoItem {
