@@ -15,6 +15,7 @@ export interface User {
   avatarUrl?: string | null;
   isMfaEnabled?: boolean;
   mustChangePassword?: boolean; // Added for force password change flow
+  isAdmin?: boolean; // Added for admin rights
 }
 
 export interface TodoItem {

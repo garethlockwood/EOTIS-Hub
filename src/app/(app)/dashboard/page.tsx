@@ -12,8 +12,10 @@ import { PLACEHOLDER_LESSONS, PLACEHOLDER_INVOICES, PLACEHOLDER_MEETINGS, PLACEH
 import type { UpcomingLesson, UnpaidInvoice, ScheduledMeeting, TodoItem } from '@/types';
 import { CalendarClock, FileText, Users2, ListChecks, PlusCircle } from 'lucide-react';
 import Link from 'next/link';
+import { useAuth } from '@/hooks/use-auth';
 
 export default function DashboardPage() {
+  const { user } = useAuth();
   const [todos, setTodos] = useState<TodoItem[]>(PLACEHOLDER_TODOS);
   const [newTodo, setNewTodo] = useState('');
 
@@ -145,13 +147,17 @@ export default function DashboardPage() {
                 <PlusCircle className="mr-2 h-4 w-4" /> New Invoice
               </Link>
             </Button>
-            <Button variant="outline" asChild className="w-full">
-              <Link href="/staff#add-member">
+            <Button variant="outline" asChild className="w-full" disabled={!user?.isAdmin} 
+              title={!user?.isAdmin ? "Admin rights required" : "Add Staff Member"}
+            >
+              <Link href={user?.isAdmin ? "/staff#add-member" : "#"} aria-disabled={!user?.isAdmin}>
                 <PlusCircle className="mr-2 h-4 w-4" /> Add Staff
               </Link>
             </Button>
-            <Button variant="outline" asChild className="w-full">
-             <Link href="/repository#upload-doc">
+            <Button variant="outline" asChild className="w-full" disabled={!user?.isAdmin}
+              title={!user?.isAdmin ? "Admin rights required" : "Upload Document"}
+            >
+             <Link href={user?.isAdmin ? "/repository#upload-doc" : "#"} aria-disabled={!user?.isAdmin}>
                 <PlusCircle className="mr-2 h-4 w-4" /> Upload Doc
               </Link>
             </Button>

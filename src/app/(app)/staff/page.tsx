@@ -9,10 +9,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PlusCircle, Search } from 'lucide-react';
+import { useAuth } from '@/hooks/use-auth';
 // Placeholder for Add/Edit Staff Dialog (future implementation)
 // import { StaffFormDialog } from '@/components/staff/staff-form-dialog';
 
 export default function StaffDirectoryPage() {
+  const { user } = useAuth();
   const [staffList, setStaffList] = useState<StaffMember[]>(PLACEHOLDER_STAFF);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'Tutor' | 'Professional'>('all');
@@ -41,7 +43,7 @@ export default function StaffDirectoryPage() {
   return (
     <>
       <PageHeader title="Staff Directory" description="Find tutors and engaged professionals.">
-        <Button disabled> {/* onClick={() => { setEditingMember(null); setIsFormOpen(true); }} */}
+        <Button disabled={!user?.isAdmin} title={!user?.isAdmin ? "Admin rights required" : "Add Staff Member"}> {/* onClick={() => { setEditingMember(null); setIsFormOpen(true); }} */}
           <PlusCircle className="mr-2 h-4 w-4" /> Add Staff Member
         </Button>
       </PageHeader>

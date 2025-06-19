@@ -6,7 +6,7 @@
 // !! True TOTP MFA setup (QR code generation from secret, code verification) for authenticator apps
 // !! typically requires backend logic (e.g., Firebase Cloud Functions).
 // !! The current implementation toggles a flag in Firestore and uses a placeholder QR.
-// !! AUTHENTICATION IS NOW REAL (Firebase Auth), NOT MOCK.
+// !! AUTHENTICATION IS NOW REAL (Firebase Auth).
 
 import type { User } from '@/types';
 import React, { createContext, useState, useEffect, useCallback } from 'react';
@@ -24,7 +24,7 @@ import {
   EmailAuthProvider,
   reauthenticateWithCredential,
   type User as FirebaseUserDataType,
-  createUserWithEmailAndPassword, // Added for completeness if ever needed, though current flow is manual user add
+  createUserWithEmailAndPassword,
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 
@@ -71,11 +71,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             id: firebaseUser.uid,
             email: firebaseUser.email,
             name: firestoreData.name || firebaseUser.displayName,
-            avatarUrl: firestoreData.avatarURL || firebaseUser.photoURL, // Read from avatarURL
+            avatarUrl: firestoreData.avatarURL || firebaseUser.photoURL,
             mustChangePassword: firestoreData.mustChangePassword || false,
             isMfaEnabled: firestoreData.isMfaEnabled || false,
+            isAdmin: firestoreData.isAdmin || false, // Fetch isAdmin flag
           };
         } else {
+          // For a brand new Firebase Auth user not yet in Firestore
           const defaultMustChangePassword = firebaseUser.metadata.creationTime === firebaseUser.metadata.lastSignInTime;
           appUser = {
             id: firebaseUser.uid,
@@ -84,14 +86,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             avatarUrl: firebaseUser.photoURL,
             mustChangePassword: defaultMustChangePassword,
             isMfaEnabled: false,
+            isAdmin: false, // Default to not admin
           };
+          // Create their Firestore document
           await setDoc(userRef, {
             email: appUser.email,
             name: appUser.name || '',
-            avatarURL: appUser.avatarUrl || '', // Write to avatarURL
+            avatarURL: appUser.avatarUrl || '',
             mustChangePassword: appUser.mustChangePassword,
             isMfaEnabled: appUser.isMfaEnabled,
-            createdAt: new Date().toISOString(), // Good practice to add a creation timestamp
+            isAdmin: appUser.isAdmin, // Save isAdmin flag
+            createdAt: new Date().toISOString(),
           }, { merge: true });
         }
         setUser(appUser);
@@ -117,7 +122,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setIsLoading(true);
     try {
       await signInWithEmailAndPassword(auth, email, pass);
-      // onAuthStateChanged handles user state and redirects are handled by useEffect
     } catch (error: any) {
       console.error("Login error:", error);
       toast({ variant: "destructive", title: "Login Failed", description: error.message || "Invalid email or password."});
@@ -146,7 +150,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setIsLoading(true);
     try {
       const updatePayloadAuth: { displayName?: string | null; photoURL?: string | null } = {};
-      if (data.name !== undefined && data.name !== null) updatePayloadAuth.displayName = data.name; // Firebase expects null or string
+      if (data.name !== undefined && data.name !== null) updatePayloadAuth.displayName = data.name;
       if (data.avatarUrl !== undefined && data.avatarUrl !== null) updatePayloadAuth.photoURL = data.avatarUrl;
 
       if (Object.keys(updatePayloadAuth).length > 0) {
@@ -156,7 +160,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const userRef = doc(db, 'users', auth.currentUser.uid);
       const firestoreUpdatePayload: { name?: string; avatarURL?: string } = {};
       if (data.name !== undefined) firestoreUpdatePayload.name = data.name;
-      if (data.avatarUrl !== undefined) firestoreUpdatePayload.avatarURL = data.avatarUrl; // Map app's avatarUrl to Firestore's avatarURL
+      if (data.avatarUrl !== undefined) firestoreUpdatePayload.avatarURL = data.avatarUrl; 
       
       if (Object.keys(firestoreUpdatePayload).length > 0) {
         await updateDoc(userRef, firestoreUpdatePayload);
@@ -210,7 +214,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setUser(prevUser => prevUser ? { ...prevUser, mustChangePassword: false } : null);
       
       toast({ title: "Password Updated", description: "Your password has been successfully set."});
-      // Redirect is handled by useEffect watching user state
     } catch (error: any) {
       console.error("Force change password error:", error);
       toast({ variant: "destructive", title: "Error", description: error.message || "Failed to update password." });
@@ -247,7 +250,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, [toast, router]);
 
   const enableMfa = useCallback(async (): Promise<{ qrCodeUrl: string; recoveryCodes: string[] }> => {
-    if (!auth.currentUser || !auth.currentUser.email) { // Added email check for QR code generation
+    if (!auth.currentUser || !auth.currentUser.email) {
       toast({variant: "destructive", title: "MFA Error", description: "User not signed in or email missing."})
       throw new Error("User not signed in or email missing");
     }
@@ -302,20 +305,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     const publicPaths = ['/login', '/forgot-password', '/reset-password'];
     const isPublicPath = publicPaths.some(p => pathname.startsWith(p));
-    // Allow root path for initial determination by page.tsx or if you have a public landing page.
     const isRootPath = pathname === '/'; 
 
-    if (user) { // User is logged in
+    if (user) {
       if (user.mustChangePassword && pathname !== '/force-change-password') {
         router.push('/force-change-password');
       } else if (!user.mustChangePassword && pathname === '/force-change-password') {
         router.push('/dashboard');
       } else if (isPublicPath && !pathname.startsWith('/reset-password')) { 
-        // Allow /reset-password even if logged in, as user might be resetting from a link
         router.push('/dashboard');
       }
-    } else { // No user is logged in
-      if (!isPublicPath && !isRootPath && pathname !== '/force-change-password') { // Protect force-change-password too
+    } else { 
+      if (!isPublicPath && !isRootPath && pathname !== '/force-change-password') {
         router.push('/login');
       }
     }
@@ -327,5 +328,3 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     </AuthContext.Provider>
   );
 };
-
-    

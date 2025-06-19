@@ -12,10 +12,12 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { PlusCircle, Search, Download, Edit, Trash2, Tag } from 'lucide-react';
 import { format } from 'date-fns';
+import { useAuth } from '@/hooks/use-auth';
 // Placeholder for Add/Edit Content Document Dialog (future implementation)
 // import { ContentDocDialog } from '@/components/repository/content-doc-dialog';
 
 export default function RepositoryPage() {
+  const { user } = useAuth();
   const [documents, setDocuments] = useState<ContentDocument[]>(PLACEHOLDER_CONTENT_DOCS);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'all' | ContentDocument['type']>('all');
@@ -43,7 +45,7 @@ export default function RepositoryPage() {
   return (
     <>
       <PageHeader title="Content Repository" description="Centralized place for lesson plans, reports, and other documents.">
-        <Button disabled> {/* onClick={() => { setEditingDoc(null); setIsFormOpen(true); }} */}
+        <Button disabled={!user?.isAdmin} title={!user?.isAdmin ? "Admin rights required" : "Upload Document"}> {/* onClick={() => { setEditingDoc(null); setIsFormOpen(true); }} */}
           <PlusCircle className="mr-2 h-4 w-4" /> Upload Document
         </Button>
       </PageHeader>
