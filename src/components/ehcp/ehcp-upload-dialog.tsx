@@ -25,7 +25,7 @@ interface EhcpUploadDialogProps {
   onOpenChange: (open: boolean) => void;
   onUploadComplete: () => void;
   trigger?: React.ReactNode;
-  actingUserId: string | undefined; // Add actingUserId prop
+  actingUserId: string | undefined; 
 }
 
 export function EhcpUploadDialog({ isOpen, onOpenChange, onUploadComplete, trigger, actingUserId }: EhcpUploadDialogProps) {
@@ -35,7 +35,7 @@ export function EhcpUploadDialog({ isOpen, onOpenChange, onUploadComplete, trigg
   const [fileName, setFileName] = useState('');
   const [description, setDescription] = useState('');
   const [status, setStatus] = useState<'Current' | 'Previous'>('Current');
-  const [associatedUserIdInput, setAssociatedUserIdInput] = useState(''); // Renamed for clarity
+  // associatedUserIdInput is removed
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -64,7 +64,7 @@ export function EhcpUploadDialog({ isOpen, onOpenChange, onUploadComplete, trigg
     setFileName('');
     setDescription('');
     setStatus('Current');
-    setAssociatedUserIdInput('');
+    // associatedUserIdInput reset is removed
     const fileInput = document.getElementById('ehcpFile') as HTMLInputElement;
     if (fileInput) fileInput.value = "";
   };
@@ -75,8 +75,8 @@ export function EhcpUploadDialog({ isOpen, onOpenChange, onUploadComplete, trigg
       toast({ variant: 'destructive', title: 'Authentication Error', description: 'Cannot upload document without an authenticated admin user.' });
       return;
     }
-    if (!selectedFile || !fileName.trim() || !status || !associatedUserIdInput.trim()) {
-      toast({ variant: 'destructive', title: 'Missing Fields', description: 'Please provide a file, name, status, and associated user ID.' });
+    if (!selectedFile || !fileName.trim() || !status ) { // Removed check for associatedUserIdInput.trim()
+      toast({ variant: 'destructive', title: 'Missing Fields', description: 'Please provide a file, name, and status.' });
       return;
     }
     setIsSubmitting(true);
@@ -86,9 +86,9 @@ export function EhcpUploadDialog({ isOpen, onOpenChange, onUploadComplete, trigg
     formData.append('name', fileName.trim());
     formData.append('description', description.trim());
     formData.append('status', status);
-    formData.append('associatedUserId', associatedUserIdInput.trim());
+    formData.append('associatedUserId', actingUserId); // Use actingUserId (admin's ID)
 
-    const result = await addEhcpDocument(formData, actingUserId); // Pass actingUserId
+    const result = await addEhcpDocument(formData, actingUserId);
 
     if (result.success) {
       toast({ title: 'Upload Successful', description: `"${fileName}" has been uploaded.` });
@@ -111,7 +111,7 @@ export function EhcpUploadDialog({ isOpen, onOpenChange, onUploadComplete, trigg
         <DialogHeader>
           <DialogTitle className="font-headline">Upload EHCP Document</DialogTitle>
           <DialogDescription>
-            Select a PDF or DOCX file, provide details, and specify the associated user ID. Max file size: 10MB.
+            Select a PDF or DOCX file and provide details. The document will be associated with your user ID. Max file size: 10MB.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="grid gap-6 py-4">
@@ -122,13 +122,10 @@ export function EhcpUploadDialog({ isOpen, onOpenChange, onUploadComplete, trigg
           
           <div>
             <Label htmlFor="fileName">Document Name</Label>
-            <Input id="fileName" value={fileName} onChange={(e) => setFileName(e.target.value)} className="mt-1" placeholder="e.g., Final EHCP - John Doe" required />
+            <Input id="fileName" value={fileName} onChange={(e) => setFileName(e.target.value)} className="mt-1" placeholder="e.g., Final EHCP - [Your Name]" required />
           </div>
 
-          <div>
-            <Label htmlFor="associatedUserIdInput">Associated User ID (Student/Client)</Label>
-            <Input id="associatedUserIdInput" value={associatedUserIdInput} onChange={(e) => setAssociatedUserIdInput(e.target.value)} className="mt-1" placeholder="Enter the User ID this document pertains to" required />
-          </div>
+          {/* Removed Associated User ID input field */}
 
           <div>
             <Label htmlFor="status">Status</Label>
