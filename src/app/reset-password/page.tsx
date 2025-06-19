@@ -13,7 +13,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import Link from 'next/link';
 import { Loader2, KeyRound } from 'lucide-react';
 import Image from 'next/image';
-import { useAuth } from '@/hooks/use-auth'; // Import useAuth
+import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 
 const resetPasswordSchema = z.object({
@@ -28,21 +28,21 @@ type ResetPasswordFormValues = z.infer<typeof resetPasswordSchema>;
 
 function ResetPasswordContent() {
   const searchParams = useSearchParams();
-  const { confirmPasswordReset, isLoading: authIsLoading } = useAuth(); // Use from context
+  const { confirmPasswordReset, isLoading: authIsLoading } = useAuth();
   const { toast } = useToast();
 
-  const [token, setToken] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false); // Separate loading state for form submission
+  const [oobCode, setOobCode] = useState<string | null>(null); // Firebase uses 'oobCode' for this
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
 
   useEffect(() => {
-    const resetToken = searchParams.get('token');
-    if (resetToken) {
-      setToken(resetToken);
+    const code = searchParams.get('oobCode'); // Firebase usually passes it as 'oobCode'
+    if (code) {
+      setOobCode(code);
     } else {
-      console.error("Reset token missing from URL.");
-      toast({ variant: "destructive", title: "Invalid Link", description: "Password reset token is missing or invalid." });
+      console.error("Password reset code (oobCode) missing from URL.");
+      toast({ variant: "destructive", title: "Invalid Link", description: "Password reset code is missing or invalid." });
     }
   }, [searchParams, toast]);
 
@@ -55,19 +55,18 @@ function ResetPasswordContent() {
   });
 
   const onSubmit: SubmitHandler<ResetPasswordFormValues> = async (data) => {
-    if (!token) {
-      toast({ variant: "destructive", title: "Error", description: "Cannot reset password without a valid token." });
+    if (!oobCode) {
+      toast({ variant: "destructive", title: "Error", description: "Cannot reset password without a valid code." });
       return;
     }
     setIsSubmitting(true);
     try {
-      await confirmPasswordReset(token, data.password);
-      // Toast is handled by confirmPasswordReset in AuthContext for success
-      // On success, AuthContext also handles redirect to /login
-      setSubmitted(true); // To change UI text
+      await confirmPasswordReset(oobCode, data.password); // Pass oobCode as token
+      // Toast and redirect is handled by AuthContext for success
+      setSubmitted(true);
     } catch (error) {
-      // Error toast is handled by confirmPasswordReset or caught here if it throws
-      toast({ variant: "destructive", title: "Error", description: (error as Error).message || "Failed to reset password." });
+      // Error toast is handled by AuthContext or caught here if it throws
+      // Error toast already in AuthContext
     }
     setIsSubmitting(false);
   };
@@ -83,11 +82,11 @@ function ResetPasswordContent() {
         <CardTitle className="text-3xl font-headline">Reset Your Password</CardTitle>
         <CardDescription>
           {submitted 
-            ? "If your token was valid, your password has been successfully reset." 
-            : (token ? "Enter your new password below." : "This reset link appears to be invalid or has expired.")}
+            ? "If your reset code was valid, your password has been successfully reset." 
+            : (oobCode ? "Enter your new password below." : "This reset link appears to be invalid or has expired.")}
         </CardDescription>
       </CardHeader>
-      {!submitted && token && (
+      {!submitted && oobCode && (
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
@@ -126,7 +125,7 @@ function ResetPasswordContent() {
         </CardContent>
       )}
       <CardFooter className="flex justify-center">
-        { (submitted || !token) && (
+        { (submitted || !oobCode) && (
           <Link href="/login" passHref>
               <Button variant="link">Back to Sign In</Button>
           </Link>

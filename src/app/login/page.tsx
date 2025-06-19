@@ -7,7 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+// Label is not directly used here, but FormLabel is.
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import Link from 'next/link';
@@ -17,7 +17,7 @@ import Image from 'next/image';
 
 const loginSchema = z.object({
   email: z.string().email({ message: 'Invalid email address.' }),
-  password: z.string().min(1, { message: 'Password cannot be empty.' }),
+  password: z.string().min(1, { message: 'Password cannot be empty.' }), // Firebase auth min is 6, but form might allow less before sending
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
@@ -35,7 +35,7 @@ export default function LoginPage() {
 
   const onSubmit: SubmitHandler<LoginFormValues> = async (data) => {
     await login(data.email, data.password);
-    // Toast for success/failure and redirect logic is handled within the login function in AuthContext
+    // Toast for success/failure and redirect logic is handled within the login function in AuthContext / onAuthStateChanged
   };
 
   return (
@@ -91,7 +91,7 @@ export default function LoginPage() {
         </CardContent>
         <CardFooter className="flex flex-col items-center text-sm space-y-2">
            <p className="text-muted-foreground text-center">
-            This system may offer Multi-Factor Authentication (MFA) for enhanced security.
+            This system uses Firebase Authentication. Ensure you have an account.
           </p>
            <p className="text-xs text-muted-foreground text-center mt-2">
             If you have trouble signing in, please contact your administrator.

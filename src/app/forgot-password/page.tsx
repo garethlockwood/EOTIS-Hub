@@ -12,7 +12,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import Link from 'next/link';
 import { Loader2, Mail } from 'lucide-react';
 import Image from 'next/image';
-import { useAuth } from '@/hooks/use-auth'; // Import useAuth
+import { useAuth } from '@/hooks/use-auth';
 
 const forgotPasswordSchema = z.object({
   email: z.string().email({ message: 'Invalid email address.' }),
@@ -21,7 +21,7 @@ const forgotPasswordSchema = z.object({
 type ForgotPasswordFormValues = z.infer<typeof forgotPasswordSchema>;
 
 export default function ForgotPasswordPage() {
-  const { sendPasswordResetEmail, isLoading } = useAuth(); // Use from context
+  const { sendPasswordResetEmail, isLoading } = useAuth();
   const [submitted, setSubmitted] = useState(false);
 
   const form = useForm<ForgotPasswordFormValues>({
@@ -32,9 +32,13 @@ export default function ForgotPasswordPage() {
   });
 
   const onSubmit: SubmitHandler<ForgotPasswordFormValues> = async (data) => {
-    await sendPasswordResetEmail(data.email);
-    // Toast is handled by sendPasswordResetEmail in AuthContext
-    setSubmitted(true); // Still set submitted to change UI text
+    try {
+      await sendPasswordResetEmail(data.email);
+      setSubmitted(true); // Toast is handled by AuthContext
+    } catch (error) {
+      // Error is handled by AuthContext, but we might want to prevent setting submitted if it fails.
+      // For now, AuthContext's toast is the primary feedback.
+    }
   };
 
   return (

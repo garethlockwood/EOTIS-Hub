@@ -7,7 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Loader2, KeyRound } from 'lucide-react';
 import Image from 'next/image';
@@ -30,18 +30,17 @@ export default function ForceChangePasswordPage() {
   const router = useRouter();
   const { toast } = useToast();
 
-  useEffect(() => {
-    if (!authIsLoading && (!user || !user.mustChangePassword)) {
-      // If user is not logged in, or doesn't need to change password, redirect.
-      // Logout if user exists but mustChangePassword is false (should not happen if logic is correct)
-      if (user && !user.mustChangePassword) {
-        toast({ title: "Not Required", description: "Password change is not required for your account."});
-        router.push('/dashboard');
-      } else if (!user) {
-         router.push('/login');
-      }
-    }
-  }, [user, authIsLoading, router, toast]);
+  // This useEffect is handled by the AuthContext general redirect logic now
+  // useEffect(() => {
+  //   if (!authIsLoading && (!user || !user.mustChangePassword)) {
+  //     if (user && !user.mustChangePassword) {
+  //       toast({ title: "Not Required", description: "Password change is not required for your account."});
+  //       router.push('/dashboard');
+  //     } else if (!user) {
+  //        router.push('/login');
+  //     }
+  //   }
+  // }, [user, authIsLoading, router, toast]);
 
   const form = useForm<ForceChangePasswordFormValues>({
     resolver: zodResolver(forceChangePasswordSchema),
@@ -54,14 +53,16 @@ export default function ForceChangePasswordPage() {
   const onSubmit: SubmitHandler<ForceChangePasswordFormValues> = async (data) => {
     try {
       await forceChangePassword(data.newPassword);
-      // Redirect is handled by forceChangePassword on success
+      // Redirect is handled by forceChangePassword on success within AuthContext
     } catch (error) {
       // Toast is handled by forceChangePassword or caught here if it throws
-      toast({ variant: "destructive", title: "Error", description: (error as Error).message || "Failed to update password." });
+      // Toast already in AuthContext for errors from forceChangePassword
     }
   };
   
   if (authIsLoading || !user || !user.mustChangePassword) {
+    // If loading, or no user, or user doesn't need to change password, show loader.
+    // AuthContext useEffect will handle redirection if necessary.
     return (
       <div className="flex min-h-screen items-center justify-center bg-background p-4">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
