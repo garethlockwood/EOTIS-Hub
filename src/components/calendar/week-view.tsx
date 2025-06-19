@@ -23,9 +23,9 @@ import {
 interface WeekViewProps {
   selectedDate: Date;
   events: CalendarEvent[];
-  zoomLevel: number; // Can be used to adjust event density or cell padding
-  onNavigateDate: (date: Date) => void; // For external navigation
-  onSelectDate: (date: Date) => void; // When a day cell is clicked
+  zoomLevel: number; 
+  onNavigateDate: (date: Date) => void; 
+  onSelectDate: (date: Date) => void; 
   onEventClick: (event: CalendarEvent) => void;
   onDeleteEvent: (eventId: string) => void;
 }
@@ -42,7 +42,7 @@ export function WeekView({ selectedDate, events, zoomLevel, onSelectDate, onEven
       .sort((a, b) => a.start.getTime() - b.start.getTime());
   };
   
-  const eventItemMinHeight = 40 * Math.max(0.5, zoomLevel * 0.8); // Adjust min height based on zoom
+  const eventItemMinHeight = 40 * Math.max(0.5, zoomLevel * 0.8);
 
   return (
     <div className="flex flex-col h-full">
@@ -64,17 +64,20 @@ export function WeekView({ selectedDate, events, zoomLevel, onSelectDate, onEven
         ))}
       </div>
       <ScrollArea className="flex-1">
-        <div className="grid grid-cols-7 h-full min-h-[400px]"> {/* Ensure a minimum height for the grid content area */}
+        <div className="grid grid-cols-7 min-h-full"> {/* Changed: Removed h-full, added min-h-full. Removed fixed min-h-[400px] */}
           {days.map(day => (
-            <div key={`content-${day.toISOString()}`} className="border-r border-border last:border-r-0 p-1.5 space-y-1.5 overflow-y-auto" style={{ minHeight: `calc(100px * ${zoomLevel})`}}>
+            <div 
+              key={`content-${day.toISOString()}`} 
+              className="border-r border-border last:border-r-0 p-1.5 space-y-1.5" /* Changed: Removed overflow-y-auto and style for minHeight */
+            >
               {getEventsForDay(day).map(event => (
                 <div
                   key={event.id}
                   className="rounded-md p-1.5 shadow cursor-pointer group relative"
                   style={{
-                    backgroundColor: event.color ? `${event.color}CC` : `hsla(var(--primary)/0.8)`, // CC for ~80% opacity
+                    backgroundColor: event.color ? `${event.color}CC` : `hsla(var(--primary)/0.8)`, 
                     color: `hsl(var(--primary-foreground))`,
-                    minHeight: `${eventItemMinHeight}px`
+                    minHeight: `${eventItemMinHeight}px` // This scales the event item itself
                   }}
                   onClick={() => onEventClick(event)}
                 >
@@ -108,8 +111,8 @@ export function WeekView({ selectedDate, events, zoomLevel, onSelectDate, onEven
                 </div>
               ))}
               {getEventsForDay(day).length === 0 && (
-                <div className="h-full flex items-center justify-center">
-                  {/* Optional: Placeholder for empty days, or leave it blank */}
+                <div className="h-full flex items-center justify-center" style={{minHeight: `${eventItemMinHeight}px`}}> 
+                  {/* Optional: Placeholder for empty days, ensure it has some min-height if all days are empty and grid needs some form */}
                 </div>
               )}
             </div>
@@ -119,5 +122,3 @@ export function WeekView({ selectedDate, events, zoomLevel, onSelectDate, onEven
     </div>
   );
 }
-
-    
