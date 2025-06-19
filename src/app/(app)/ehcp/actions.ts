@@ -8,7 +8,7 @@ import type { EHCPDocument } from '@/types';
 import { revalidatePath } from 'next/cache';
 
 // Helper to check admin status
-async function isAdmin(uid: string): Promise<boolean> {
+async function isAdmin(uid: string | undefined): Promise<boolean> {
   if (!uid) return false; // Ensure UID is provided
   const userDocRef = doc(db, 'users', uid);
   const userDocSnap = await getDoc(userDocRef);
@@ -23,8 +23,8 @@ export async function getEhcpDocuments(actingUserId: string): Promise<{ document
   try {
     const q = query(
       collection(db, 'ehcpDocuments'),
-      where('associatedUserId', '==', actingUserId), // Filter by the acting user's ID
-      orderBy('uploadDate', 'desc')
+      where('associatedUserId', '==', actingUserId)
+      // orderBy('uploadDate', 'desc') // Temporarily commented out for diagnostics
     );
 
     const querySnapshot = await getDocs(q);
@@ -33,7 +33,7 @@ export async function getEhcpDocuments(actingUserId: string): Promise<{ document
       return {
         docId: docSnap.id,
         name: data.name,
-        uploadDate: (data.uploadDate as Timestamp).toDate().toISOString(),
+        uploadDate: data.uploadDate ? (data.uploadDate as Timestamp).toDate().toISOString() : '', // Handle missing uploadDate gracefully
         status: data.status,
         fileUrl: data.fileUrl,
         storagePath: data.storagePath,
@@ -70,18 +70,16 @@ export async function addEhcpDocument(formData: FormData, actingUserId: string):
   const name = formData.get('name') as string | null;
   const description = formData.get('description') as string | null;
   const status = formData.get('status') as 'Current' | 'Previous' | null;
-  const associatedUserId = formData.get('associatedUserId') as string | null;
+  // const associatedUserId = formData.get('associatedUserId') as string | null; // Removed as it's now actingUserId
 
-
-  if (!file || !name || !status || !associatedUserId) {
-    return { error: 'Missing required fields (file, name, status, or associated user ID).' };
+  if (!file || !name || !status ) { // Removed check for associatedUserId
+    return { error: 'Missing required fields (file, name, or status).' };
   }
 
   if (!['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'].includes(file.type)) {
     return { error: 'Invalid file type. Only PDF and DOCX are allowed.' };
   }
   
-  // Fetch uploader's display name/email
   let uploaderName = 'Unknown Admin';
   try {
     const actingUserDocRef = doc(db, 'users', actingUserId);
@@ -112,11 +110,11 @@ export async function addEhcpDocument(formData: FormData, actingUserId: string):
       fileUrl: downloadURL,
       storagePath,
       fileType,
-      uploaderUid: actingUserId, // Use actingUserId
-      uploaderName: uploaderName, // Use fetched name
+      uploaderUid: actingUserId,
+      uploaderName: uploaderName,
       originalFileName: file.name,
-      uploadDate: Timestamp.now(),
-      associatedUserId: associatedUserId,
+      uploadDate: Timestamp.now(), // This sets the uploadDate correctly
+      associatedUserId: actingUserId, // Use actingUserId for association
       docId: documentId, 
     };
 
