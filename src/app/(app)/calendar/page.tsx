@@ -46,8 +46,7 @@ export default function CalendarPage() {
   const [isMounted, setIsMounted] = useState(false);
   const { toast } = useToast();
   
-  useEffect(() => setIsMounted(true), []);
-
+  // Moved hook-dependent calculations before the conditional return
   const currentWeekStart = useMemo(() => startOfWeek(selectedDate, { weekStartsOn: 1 }), [selectedDate]);
   const currentWeekEnd = useMemo(() => endOfWeek(selectedDate, { weekStartsOn: 1 }), [selectedDate]);
 
@@ -62,6 +61,34 @@ export default function CalendarPage() {
     return '';
   }, [currentView, selectedDate, currentWeekStart, currentWeekEnd]);
 
+  const eventsForSelectedDayInMonthView = useMemo(() => {
+    if (currentView !== 'month' || !selectedDate) return [];
+    return events.filter(event => isSameDay(event.start, selectedDate))
+                 .sort((a, b) => a.start.getTime() - b.start.getTime());
+  }, [events, selectedDate, currentView]);
+
+  const eventDateModifiers = useMemo(() => {
+    return {
+      hasEvent: events.map(e => e.start),
+    };
+  }, [events]);
+  
+  useEffect(() => setIsMounted(true), []);
+
+  if (!isMounted) {
+    return (
+      <div className="flex flex-col h-[calc(100vh-10rem)]">
+        <PageHeader title="Interactive Calendar" description="Manage your lessons, meetings, and events.">
+            <Button onClick={openNewEventDialog} disabled>
+            <PlusCircle className="mr-2 h-4 w-4" /> Add Event
+            </Button>
+        </PageHeader>
+        <div className="flex justify-center items-center flex-1">
+            <p>Loading Calendar...</p>
+        </div>
+      </div>
+    );
+  }
 
   const handleDateSelect = (date: Date | undefined) => {
     if (date) {
@@ -111,13 +138,6 @@ export default function CalendarPage() {
     setIsEventDialogOpen(true);
   }, []);
 
-
-  const eventDateModifiers = useMemo(() => {
-    return {
-      hasEvent: events.map(e => e.start),
-    };
-  }, [events]);
-
   const handleZoom = (amount: number) => {
     setZoomLevel(prev => Math.max(0.5, Math.min(2.0, prev + amount)));
   };
@@ -141,30 +161,8 @@ export default function CalendarPage() {
     setCurrentView('day'); 
   };
 
-  const eventsForSelectedDayInMonthView = useMemo(() => {
-    if (currentView !== 'month' || !selectedDate) return [];
-    return events.filter(event => isSameDay(event.start, selectedDate))
-                 .sort((a, b) => a.start.getTime() - b.start.getTime());
-  }, [events, selectedDate, currentView]);
-
   const prevButtonTitle = currentView === 'day' ? "Previous Day" : currentView === 'week' ? "Previous Week" : "Previous Month";
   const nextButtonTitle = currentView === 'day' ? "Next Day" : currentView === 'week' ? "Next Week" : "Next Month";
-
-
-  if (!isMounted) {
-    return (
-      <div className="flex flex-col h-[calc(100vh-10rem)]">
-        <PageHeader title="Interactive Calendar" description="Manage your lessons, meetings, and events.">
-            <Button onClick={openNewEventDialog} disabled>
-            <PlusCircle className="mr-2 h-4 w-4" /> Add Event
-            </Button>
-        </PageHeader>
-        <div className="flex justify-center items-center flex-1">
-            <p>Loading Calendar...</p>
-        </div>
-      </div>
-    );
-  }
   
 
   return (

@@ -128,5 +128,4 @@ export function DayView({ selectedDate, events, zoomLevel, onEventClick, onDelet
     </ScrollArea>
   );
 }
-
     
