@@ -1,5 +1,5 @@
 import type { NavItem, UpcomingLesson, UnpaidInvoice, ScheduledMeeting, TodoItem, StaffMember, FinancialDocument, ContentDocument, CalendarEvent } from '@/types';
-import { LayoutDashboard, CalendarDays, Users, CreditCard, FolderKanban, Sparkles, Bot } from 'lucide-react';
+import { LayoutDashboard, CalendarDays, Users, CreditCard, FolderKanban, Sparkles, Bot, UserCircle2 as ProfileIcon } from 'lucide-react'; // Changed User to UserCircle2 for profile consistency
 
 export const NAV_ITEMS: NavItem[] = [
   { title: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -8,6 +8,8 @@ export const NAV_ITEMS: NavItem[] = [
   { title: 'Finances', href: '/finances', icon: CreditCard },
   { title: 'Content Repository', href: '/repository', icon: FolderKanban },
   { title: 'AI Assistant', href: '/assistant', icon: Bot },
+  // Example of adding Profile to main nav, if desired:
+  // { title: 'Profile', href: '/profile', icon: ProfileIcon },
 ];
 
 export const PLACEHOLDER_TODOS: TodoItem[] = [

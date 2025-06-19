@@ -1,6 +1,7 @@
 import type {Metadata} from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
+// Removed AuthProvider from here, it's now in (app)/layout.tsx
 
 export const metadata: Metadata = {
   title: 'EOTIS Hub',

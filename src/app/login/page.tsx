@@ -1,0 +1,105 @@
+// src/app/login/page.tsx
+'use client';
+
+import React from 'react';
+import { useForm, type SubmitHandler } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import Link from 'next/link';
+import { useAuth } from '@/hooks/use-auth';
+import { Loader2, LogIn } from 'lucide-react';
+import Image from 'next/image';
+
+const loginSchema = z.object({
+  email: z.string().email({ message: 'Invalid email address.' }),
+  password: z.string().min(6, { message: 'Password must be at least 6 characters.' }),
+});
+
+type LoginFormValues = z.infer<typeof loginSchema>;
+
+export default function LoginPage() {
+  const { login, isLoading } = useAuth();
+
+  const form = useForm<LoginFormValues>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: {
+      email: '',
+      password: '',
+    },
+  });
+
+  const onSubmit: SubmitHandler<LoginFormValues> = async (data) => {
+    await login(data.email, data.password);
+  };
+
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-background p-4">
+      <Card className="w-full max-w-md shadow-2xl">
+        <CardHeader className="text-center">
+          <div className="mx-auto mb-4">
+            <Image src="https://placehold.co/80x80.png?text=LOGO" alt="EOTIS Hub Logo" width={80} height={80} data-ai-hint="logo placeholder" />
+          </div>
+          <CardTitle className="text-3xl font-headline">Welcome Back</CardTitle>
+          <CardDescription>Sign in to your EOTIS Hub account.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email Address</FormLabel>
+                    <FormControl>
+                      <Input type="email" placeholder="you@example.com" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <div className="flex items-center justify-between">
+                      <FormLabel>Password</FormLabel>
+                      <Link href="/forgot-password" passHref>
+                        <Button variant="link" size="sm" className="p-0 h-auto text-xs">Forgot password?</Button>
+                      </Link>
+                    </div>
+                    <FormControl>
+                      <Input type="password" placeholder="••••••••" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoading ? <Loader2 className="animate-spin mr-2" /> : <LogIn className="mr-2" />}
+                Sign In
+              </Button>
+            </form>
+          </Form>
+        </CardContent>
+        <CardFooter className="flex flex-col items-center text-sm">
+          <p className="text-muted-foreground">
+            This system may offer Multi-Factor Authentication (MFA) with Microsoft Authenticator for enhanced security.
+          </p>
+          <div className="mt-4">
+            <span className="text-muted-foreground">Don't have an account? </span>
+            <Link href="/signup" passHref>
+               <Button variant="link" className="p-0 h-auto">Sign Up (Placeholder)</Button>
+            </Link>
+          </div>
+        </CardFooter>
+      </Card>
+    </div>
+  );
+}

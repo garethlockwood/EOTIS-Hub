@@ -8,6 +8,14 @@ export interface NavItem {
   label?: string;
 }
 
+export interface User {
+  id: string;
+  name?: string | null;
+  email?: string | null;
+  avatarUrl?: string | null;
+  isMfaEnabled?: boolean;
+}
+
 export interface TodoItem {
   id: string;
   text: string;
@@ -60,6 +68,7 @@ export interface StaffMember {
   hourlyRate?: number; // For tutors
   specialty?: string; // For professionals
   avatarUrl?: string;
+  dataAiHint?: string;
   contactEmail?: string;
   contactPhone?: string;
   subjects?: string[]; // For tutors

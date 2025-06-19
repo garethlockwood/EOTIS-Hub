@@ -1,14 +1,14 @@
-
+// src/app/(app)/layout.tsx
 'use client';
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { NAV_ITEMS } from '@/lib/constants';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { Menu, X, Settings, Bell, UserCircle, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { Menu, X, Settings, Bell, ChevronsLeft, ChevronsRight, LogOut, UserCircle2 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -19,6 +19,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from '@/lib/utils';
+import { AuthProvider, AuthContext } from '@/contexts/auth-context'; // Import AuthProvider and AuthContext
+import { useAuth } from '@/hooks/use-auth'; // Import useAuth
 
 interface SidebarNavProps {
   isCollapsed: boolean;
@@ -49,54 +51,70 @@ const SidebarNavigation: React.FC<SidebarNavProps> = ({ isCollapsed, onLinkClick
   </nav>
 );
 
-
-export default function AppLayout({ children }: { children: React.ReactNode }) {
+function AppLayoutContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const { user, logout, isLoading: authIsLoading } = useAuth(); // Get user and logout from AuthContext
+  const router = useRouter();
+
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isDesktopSidebarCollapsed, setIsDesktopSidebarCollapsed] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
     setIsMounted(true);
-    // Optional: Load sidebar state from localStorage to persist user preference
-    // const savedState = localStorage.getItem('sidebarCollapsed');
-    // if (savedState !== null) {
-    //   setIsDesktopSidebarCollapsed(JSON.parse(savedState));
-    // }
+    const savedState = localStorage.getItem('sidebarCollapsed');
+    if (savedState !== null) {
+      setIsDesktopSidebarCollapsed(JSON.parse(savedState));
+    }
   }, []);
 
-  // Optional: Save sidebar state to localStorage
-  // useEffect(() => {
-  //   if (isMounted) {
-  //     localStorage.setItem('sidebarCollapsed', JSON.stringify(isDesktopSidebarCollapsed));
-  //   }
-  // }, [isDesktopSidebarCollapsed, isMounted]);
-
-  if (!isMounted) {
-    // Return null or a loading skeleton if using localStorage to prevent hydration mismatch
-    return null; 
-  }
+  useEffect(() => {
+    if (isMounted) {
+      localStorage.setItem('sidebarCollapsed', JSON.stringify(isDesktopSidebarCollapsed));
+    }
+  }, [isDesktopSidebarCollapsed, isMounted]);
 
   const handleMobileLinkClick = () => {
     setIsMobileSidebarOpen(false);
   };
+  
+  const handleLogout = async () => {
+    await logout();
+    // router.push('/login'); // useAuth handles redirect
+  };
+
+  if (!isMounted || authIsLoading) { // Wait for auth state and mount
+    // You might want a more sophisticated loading spinner here
+    return <div className="flex h-screen w-screen items-center justify-center"><UserCircle2 className="h-12 w-12 animate-pulse text-primary" /></div>;
+  }
+  
+  if (!user && !pathname.startsWith('/login')) {
+      // This check is mostly for completeness, middleware and AuthContext useEffect should handle it
+      // but good for explicit client-side guard during initial load if needed.
+      // router.push('/login'); // Handled by AuthContext effect
+      return <div className="flex h-screen w-screen items-center justify-center"><UserCircle2 className="h-12 w-12 animate-pulse text-primary" /></div>; // Or a redirecting message
+  }
+
+
+  const pageTitle = NAV_ITEMS.find(item => pathname.startsWith(item.href))?.title || 
+                    (pathname.startsWith('/profile') ? 'My Profile' : 'EOTIS Hub');
+
 
   return (
     <div className="flex min-h-screen w-full bg-background">
-      {/* Desktop Sidebar */}
       <aside className={cn(
         "hidden md:flex md:flex-col border-r bg-card transition-all duration-300 ease-in-out relative",
         isDesktopSidebarCollapsed ? "md:w-20" : "md:w-64"
       )}>
         <div className={cn(
           "flex h-16 items-center border-b",
-          isDesktopSidebarCollapsed ? "px-2 justify-center" : "px-6" // Adjusted padding for logo area
+          isDesktopSidebarCollapsed ? "px-2 justify-center" : "px-6"
         )}>
           <Link href="/dashboard" className={cn(
               "flex items-center gap-2 font-semibold font-headline text-primary",
               isDesktopSidebarCollapsed && "justify-center w-full"
           )}>
-            <UserCircle className="h-7 w-7 flex-shrink-0" />
+            <UserCircle2 className="h-7 w-7 flex-shrink-0" />
             {!isDesktopSidebarCollapsed && <span className="truncate">EOTIS Hub</span>}
           </Link>
         </div>
@@ -108,22 +126,23 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </ScrollArea>
         <div className={cn(
           "mt-auto border-t",
-          isDesktopSidebarCollapsed ? "p-2" : "p-4" // Adjusted padding for settings
+          isDesktopSidebarCollapsed ? "p-2" : "p-4"
         )}>
           <Button
             variant="ghost"
+            asChild
             className={cn(
               "w-full justify-start gap-2 h-10",
               isDesktopSidebarCollapsed ? "px-0 justify-center" : "px-3"
             )}
             title={isDesktopSidebarCollapsed ? "Settings" : undefined}
           >
-            <Settings className="h-5 w-5 flex-shrink-0" />
-            {!isDesktopSidebarCollapsed && <span className="truncate">Settings</span>}
+            <Link href="/profile?tab=appearance">
+              <Settings className="h-5 w-5 flex-shrink-0" />
+              {!isDesktopSidebarCollapsed && <span className="truncate">Settings</span>}
+            </Link>
           </Button>
         </div>
-
-        {/* Desktop Sidebar Toggle Button */}
         <Button
           variant="outline"
           size="icon"
@@ -136,9 +155,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       </aside>
 
       <div className="flex flex-1 flex-col">
-        {/* Mobile Header & Desktop Header */}
         <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-card px-4 md:px-6">
-          {/* Mobile Sidebar Trigger */}
           <Sheet open={isMobileSidebarOpen} onOpenChange={setIsMobileSidebarOpen}>
             <SheetTrigger asChild className="md:hidden">
               <Button variant="outline" size="icon">
@@ -149,7 +166,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <SheetContent side="left" className="flex flex-col p-0 w-64">
               <div className="flex h-16 items-center border-b px-6">
                 <Link href="/dashboard" className="flex items-center gap-2 font-semibold font-headline text-primary">
-                  <UserCircle className="h-7 w-7 flex-shrink-0" />
+                  <UserCircle2 className="h-7 w-7 flex-shrink-0" />
                   <span>EOTIS Hub</span>
                 </Link>
                 <Button variant="ghost" size="icon" onClick={() => setIsMobileSidebarOpen(false)} className="ml-auto">
@@ -164,16 +181,18 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 />
               </ScrollArea>
               <div className="mt-auto p-4 border-t">
-                <Button variant="ghost" className="w-full justify-start gap-2 h-10">
-                  <Settings className="h-5 w-5 flex-shrink-0" />
-                  <span>Settings</span>
+                <Button variant="ghost" asChild className="w-full justify-start gap-2 h-10">
+                  <Link href="/profile?tab=appearance">
+                    <Settings className="h-5 w-5 flex-shrink-0" />
+                    <span>Settings</span>
+                  </Link>
                 </Button>
               </div>
             </SheetContent>
           </Sheet>
           
           <div className="hidden md:block font-headline text-lg font-semibold">
-            {NAV_ITEMS.find(item => pathname.startsWith(item.href))?.title || 'EOTIS Hub'}
+            {pageTitle}
           </div>
 
           <div className="ml-auto flex items-center gap-4">
@@ -185,19 +204,26 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="rounded-full">
                   <Avatar className="h-8 w-8">
-                    <AvatarImage src="https://placehold.co/40x40.png" alt="User Avatar" data-ai-hint="user avatar" />
-                    <AvatarFallback>JD</AvatarFallback>
+                    <AvatarImage src={user?.avatarUrl || "https://placehold.co/40x40.png?text=U"} alt={user?.name || "User"} data-ai-hint="user avatar" />
+                    <AvatarFallback>{user?.name ? user.name.substring(0,2).toUpperCase() : "U"}</AvatarFallback>
                   </Avatar>
                   <span className="sr-only">User menu</span>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                <DropdownMenuLabel>{user?.name || user?.email || 'My Account'}</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem>Profile</DropdownMenuItem>
-                <DropdownMenuItem>Settings</DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/profile">Profile</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/profile?tab=appearance">Settings</Link>
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem>Logout</DropdownMenuItem>
+                <DropdownMenuItem onClick={handleLogout}>
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Logout
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -208,5 +234,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </main>
       </div>
     </div>
+  );
+}
+
+// Wrap AppLayoutContent with AuthProvider
+export default function AppLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <AuthProvider>
+      <AppLayoutContent>{children}</AppLayoutContent>
+    </AuthProvider>
   );
 }
