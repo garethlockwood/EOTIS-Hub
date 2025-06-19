@@ -59,27 +59,46 @@ export default function EhcpPage() {
     if (!user?.id) {
       setError('User not authenticated. Cannot fetch documents.');
       setIsLoading(false);
-      setDocuments([]); // Clear documents if user is not authenticated
+      setDocuments([]);
       return;
     }
     setIsLoading(true);
     setError(null);
-    const result = await getEhcpDocuments(user.id);
-    if (result.documents) {
-      setDocuments(result.documents);
-    } else {
-      setError(result.error || 'Failed to load documents.');
+    try {
+      const result = await getEhcpDocuments(user.id);
+
+      if (result) { // Check if result is not undefined/null
+        if (result.documents) {
+          setDocuments(result.documents);
+        } else if (result.error) {
+          setError(result.error);
+          setDocuments([]);
+        } else {
+          // Result is an object, but not in the expected {documents: ...} or {error: ...} format
+          setError('Received an unexpected response format from the server.');
+          setDocuments([]);
+          console.error('Unexpected response format from getEhcpDocuments:', result);
+        }
+      } else {
+        // Result is undefined or null
+        setError('Failed to load documents. No response received from the server.');
+        setDocuments([]);
+        console.error('Null or undefined response from getEhcpDocuments.');
+      }
+    } catch (e: any) {
+      console.error('Client-side error in fetchDocuments:', e);
+      setError(e.message || 'An unexpected error occurred while fetching documents.');
       setDocuments([]);
     }
     setIsLoading(false);
-  }, [user]);
+  }, [user]); // Corrected dependency array
 
   useEffect(() => {
-    if (user) { // Only fetch if user is available
+    if (user) { 
       fetchDocuments();
     } else {
-      setIsLoading(false); // Not loading if no user
-      setDocuments([]); // Ensure documents are cleared if user logs out
+      setIsLoading(false); 
+      setDocuments([]); 
       setError('User not authenticated. Please log in to view documents.');
     }
   }, [user, fetchDocuments]);
@@ -306,7 +325,7 @@ export default function EhcpPage() {
           isOpen={isUploadDialogOpen}
           onOpenChange={setIsUploadDialogOpen}
           onUploadComplete={fetchDocuments}
-          actingUserId={user.id} // Pass actingUserId to the upload dialog
+          actingUserId={user.id} 
         />
       )}
       
