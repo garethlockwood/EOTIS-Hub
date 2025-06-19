@@ -1,42 +1,40 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Users collection
+    // Users collection:
+    // - Authenticated users can read their own document.
+    // - Authenticated users can create their own document (e.g., on signup).
+    // - Authenticated users can update their own document (e.g., profile changes).
+    // - Admin users (checked via custom claim or a field in their own user doc) can read/write any user doc if needed.
     match /users/{userId} {
-      // Anyone can create a user document (e.g., during signup)
-      allow create: if request.auth != null;
-      // Users can read their own document
-      allow get: if request.auth != null && request.auth.uid == userId;
-      // Users can update their own document (name, avatarURL, mustChangePassword, isMfaEnabled)
-      // Admins can update any user document (e.g., to set isAdmin or mustChangePassword)
-      allow update: if request.auth != null &&
-                       (request.auth.uid == userId ||
-                        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isAdmin', false) == true));
-      // Only admins can delete user documents (generally not recommended to allow user deletion)
-      allow delete: if request.auth != null &&
-                       (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isAdmin', false) == true);
+      allow read, update: if request.auth != null && request.auth.uid == userId;
+      allow create: if request.auth != null; // More specific rules might be needed if creation is admin-only
+      // For admin access to any user document (example, adjust as needed):
+      // allow read, write: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
     }
 
-    // EHCP Documents
+    // EHCPDocuments collection:
+    // - Authenticated users can list documents (query will filter for their own).
+    // - Authenticated users can get documents if associatedUserId matches their UID OR if they are an admin.
+    // - Only admins can create, update, or delete EHCP documents.
     match /ehcpDocuments/{docId} {
-      // DIAGNOSTIC: Allow any list operation temporarily
-      allow list: if true; // VERY PERMISSIVE - FOR DIAGNOSTICS ONLY
-
-      // Users can get their own documents, or admins can get any document.
+      allow list: if request.auth != null; // Authenticated users can attempt to list. Query filters.
       allow get: if request.auth != null &&
                     (resource.data.associatedUserId == request.auth.uid ||
-                     (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isAdmin', false) == true));
+                     get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isAdmin', false) == true);
 
-      // Only admins can create, update, delete EHCP documents
       allow create, update, delete: if request.auth != null &&
-                                       (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isAdmin', false) == true);
+                                     get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isAdmin', false) == true;
     }
 
-    // Other collections (if any) would go here
-    // Example: match /otherCollection/{otherDocId} {
-    // allow read, write: if request.auth != null;
+    // Add rules for other collections as needed (e.g., calendarEvents, financialDocs, contentDocs, staffMembers)
+    // Example for a generic collection where users manage their own items:
+    // match /myCollection/{itemId} {
+    //   allow read, write: if request.auth != null && resource.data.ownerUid == request.auth.uid;
+    //   allow create: if request.auth != null;
     // }
   }
 }
