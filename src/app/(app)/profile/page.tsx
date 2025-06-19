@@ -1,7 +1,7 @@
 // src/app/(app)/profile/page.tsx
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { PageHeader } from '@/components/common/page-header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,13 +11,15 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Switch } from '@/components/ui/switch';
-import { Loader2, Save, Shield, Palette, User as UserIcon, KeyRound, QrCode } from 'lucide-react'; // Removed Upload icon as it's implicit
+import { Loader2, Save, Shield, Palette, User as UserIcon, KeyRound, QrCode } from 'lucide-react';
 import { useForm, type SubmitHandler, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import Image from 'next/image';
 import { useToast } from '@/hooks/use-toast';
 import type { User } from '@/types';
+import { storage } from '@/lib/firebase'; // Import Firebase storage
+import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 
 const profileSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters.').optional(),
@@ -75,7 +77,6 @@ export default function ProfilePage() {
     const files = event.target.files;
     if (files && files.length > 0) {
       const file = files[0];
-      // Validate file type and size again for immediate feedback if needed, though Zod handles it on submit
       if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type)) {
         toast({ variant: "destructive", title: "Invalid File Type", description: "Please select a JPG, PNG, WEBP, or GIF image."});
         return;
@@ -92,46 +93,70 @@ export default function ProfilePage() {
       reader.readAsDataURL(file);
       profileForm.setValue('avatarFile', files, { shouldValidate: true });
     } else {
-      // If no file is selected (e.g., user cancels file dialog), reset to current user avatar or default
       setAvatarPreview(user?.avatarUrl || null);
       profileForm.setValue('avatarFile', undefined);
     }
   };
 
   const onProfileSubmit: SubmitHandler<ProfileFormValues> = async (data) => {
+    if (!user) {
+      toast({ variant: "destructive", title: "Error", description: "User not found." });
+      return;
+    }
     setIsSavingProfile(true);
     const updatePayload: Partial<Pick<User, 'name' | 'avatarUrl'>> = {};
 
-    if (data.name && data.name !== user?.name) {
+    if (data.name && data.name !== user.name) {
       updatePayload.name = data.name;
     }
 
     if (data.avatarFile && data.avatarFile.length > 0) {
       const file = data.avatarFile[0];
+      const storageRef = ref(storage, `avatars/${user.id}/${file.name}`);
+      
       try {
-        const avatarDataUri = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result as string);
-          reader.onerror = reject;
-          reader.readAsDataURL(file);
+        const uploadTask = uploadBytesResumable(storageRef, file);
+
+        await new Promise<void>((resolve, reject) => {
+          uploadTask.on('state_changed',
+            (snapshot) => {
+              // Optional: handle progress
+              // const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+              // console.log('Upload is ' + progress + '% done');
+            },
+            (error) => {
+              console.error("Firebase Storage upload error:", error);
+              toast({ variant: "destructive", title: "Avatar Upload Failed", description: "Could not upload image to cloud storage." });
+              reject(error);
+            },
+            async () => {
+              try {
+                const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+                updatePayload.avatarUrl = downloadURL;
+                resolve();
+              } catch (error) {
+                 console.error("Error getting download URL:", error);
+                 toast({ variant: "destructive", title: "Avatar URL Error", description: "Could not get image URL after upload." });
+                 reject(error);
+              }
+            }
+          );
         });
-        updatePayload.avatarUrl = avatarDataUri;
       } catch (error) {
-        console.error("Error reading avatar file:", error);
-        toast({ variant: "destructive", title: "Avatar Error", description: "Could not process the avatar image." });
+        // Error already handled and toasted by uploadTask.on error handler or getDownloadURL catch
         setIsSavingProfile(false);
         return;
       }
-    } else if (avatarPreview === null && user?.avatarUrl) { 
-      // If preview was cleared and there was an old avatar, it means user wants to remove it
-      // This logic might need refinement based on desired "remove avatar" behavior
-      // For now, if avatarFile is not provided, we don't change avatarUrl unless explicitly handled
     }
 
-
     if (Object.keys(updatePayload).length > 0) {
-      await updateProfile(updatePayload);
-      toast({ title: "Profile Updated", description: "Your profile has been successfully updated." });
+      try {
+        await updateProfile(updatePayload);
+        toast({ title: "Profile Updated", description: "Your profile has been successfully updated." });
+      } catch (error) {
+        console.error("Error updating profile context:", error);
+        toast({ variant: "destructive", title: "Profile Update Error", description: "Failed to update profile locally." });
+      }
     } else {
       toast({ title: "No Changes", description: "No changes were detected in your profile." });
     }
@@ -142,7 +167,8 @@ export default function ProfilePage() {
   const onPasswordSubmit: SubmitHandler<PasswordFormValues> = async (data) => {
     setIsChangingPassword(true);
     await changePassword(data.currentPassword, data.newPassword);
-    toast({ title: "Password Change Request", description: "Password change attempt submitted (mocked)." });
+    // Toast is now handled by useAuth hook based on promise resolution or on page after await
+    // toast({ title: "Password Change Request", description: "Password change attempt submitted (mocked)." });
     passwordForm.reset();
     setIsChangingPassword(false);
   };
@@ -155,7 +181,7 @@ export default function ProfilePage() {
       setMfaRecoveryCodes(recoveryCodes);
       mfaCodeForm.reset();
     } catch (error) {
-      toast({ variant: "destructive", title: "MFA Error", description: "Could not start MFA setup." });
+      toast({ variant: "destructive", title: "MFA Error", description: (error as Error).message || "Could not start MFA setup." });
       setIsSettingUpMfa(false);
     }
   };
@@ -191,12 +217,10 @@ export default function ProfilePage() {
     setIsSettingUpMfa(false);
   };
 
-  React.useEffect(() => {
-    // Update avatar preview if user avatar changes from context (e.g. after initial load)
+  useEffect(() => {
     if (user?.avatarUrl && user.avatarUrl !== avatarPreview) {
         setAvatarPreview(user.avatarUrl);
     }
-     // Update name in form if user context changes
     if (user?.name && user.name !== profileForm.getValues('name')) {
         profileForm.setValue('name', user.name);
     }
@@ -215,7 +239,6 @@ export default function ProfilePage() {
     <>
       <PageHeader title="My Profile & Settings" description="Manage your account details, security, and application preferences." />
       <Tabs defaultValue="profile" className="space-y-4" onValueChange={() => {
-          // Reset avatar preview to current user's avatar when switching tabs if not saving
           if (!isSavingProfile) setAvatarPreview(user.avatarUrl || null);
           profileForm.reset({ name: user.name || '', avatarFile: undefined });
       }}>
@@ -243,14 +266,14 @@ export default function ProfilePage() {
                      <Controller
                         name="avatarFile"
                         control={profileForm.control}
-                        render={({ field }) => ( // Omit `value` from field to use controlled input properly
+                        render={({ field }) => (
                             <Input 
                                 id="avatarFile" 
                                 type="file" 
                                 accept="image/png, image/jpeg, image/gif, image/webp"
                                 onChange={(e) => {
-                                    field.onChange(e.target.files); // Update RHF field state
-                                    handleAvatarChange(e);         // Update preview
+                                    field.onChange(e.target.files); 
+                                    handleAvatarChange(e);         
                                 }}
                                 onBlur={field.onBlur}
                                 ref={field.ref}
@@ -275,7 +298,7 @@ export default function ProfilePage() {
                   <p className="text-xs text-muted-foreground mt-1">Email address cannot be changed.</p>
                 </div>
                 
-                <Button type="submit" disabled={isSavingProfile || !profileForm.formState.isDirty}>
+                <Button type="submit" disabled={isSavingProfile || (!profileForm.formState.isDirty && !profileForm.getValues('avatarFile'))}>
                   {isSavingProfile ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                   Save Changes
                 </Button>

@@ -16,6 +16,12 @@ const nextConfig: NextConfig = {
         port: '',
         pathname: '/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'firebasestorage.googleapis.com', // Add Firebase Storage domain
+        port: '',
+        pathname: '/**', // You might want to restrict this to your bucket path e.g., /v0/b/your-bucket-name.appspot.com/o/**
+      },
     ],
   },
 };
