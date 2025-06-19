@@ -64,11 +64,11 @@ export function WeekView({ selectedDate, events, zoomLevel, onSelectDate, onEven
         ))}
       </div>
       <ScrollArea className="flex-1">
-        <div className="grid grid-cols-7 min-h-full"> {/* Changed: Removed h-full, added min-h-full. Removed fixed min-h-[400px] */}
+        <div className="grid grid-cols-7 min-h-full">
           {days.map(day => (
             <div 
               key={`content-${day.toISOString()}`} 
-              className="border-r border-border last:border-r-0 p-1.5 space-y-1.5" /* Changed: Removed overflow-y-auto and style for minHeight */
+              className="border-r border-border last:border-r-0 p-1.5 space-y-1.5"
             >
               {getEventsForDay(day).map(event => (
                 <div
@@ -77,7 +77,7 @@ export function WeekView({ selectedDate, events, zoomLevel, onSelectDate, onEven
                   style={{
                     backgroundColor: event.color ? `${event.color}CC` : `hsla(var(--primary)/0.8)`, 
                     color: `hsl(var(--primary-foreground))`,
-                    minHeight: `${eventItemMinHeight}px` // This scales the event item itself
+                    minHeight: `${eventItemMinHeight}px`
                   }}
                   onClick={() => onEventClick(event)}
                 >
@@ -112,7 +112,6 @@ export function WeekView({ selectedDate, events, zoomLevel, onSelectDate, onEven
               ))}
               {getEventsForDay(day).length === 0 && (
                 <div className="h-full flex items-center justify-center" style={{minHeight: `${eventItemMinHeight}px`}}> 
-                  {/* Optional: Placeholder for empty days, ensure it has some min-height if all days are empty and grid needs some form */}
                 </div>
               )}
             </div>

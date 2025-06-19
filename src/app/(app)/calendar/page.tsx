@@ -41,14 +41,15 @@ export default function CalendarPage() {
   const [isEventDialogOpen, setIsEventDialogOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
   const [currentView, setCurrentView] = useState<'month' | 'week' | 'day'>('month');
-  const [zoomLevel, setZoomLevel] = useState(1.0); // 1.0 = 100%
+  const [zoomLevel, setZoomLevel] = useState(1.0); 
 
   const [isMounted, setIsMounted] = useState(false);
-  useEffect(() => setIsMounted(true), []);
   const { toast } = useToast();
+  
+  useEffect(() => setIsMounted(true), []);
 
-  const currentWeekStart = startOfWeek(selectedDate, { weekStartsOn: 1 }); // Monday
-  const currentWeekEnd = endOfWeek(selectedDate, { weekStartsOn: 1 });
+  const currentWeekStart = useMemo(() => startOfWeek(selectedDate, { weekStartsOn: 1 }), [selectedDate]);
+  const currentWeekEnd = useMemo(() => endOfWeek(selectedDate, { weekStartsOn: 1 }), [selectedDate]);
 
   const viewTitle = useMemo(() => {
     if (currentView === 'month') return format(selectedDate, 'MMMM yyyy');
@@ -287,7 +288,7 @@ export default function CalendarPage() {
                 </CardContent>
               </Card>
             </TabsContent>
-            <TabsContent value="week" className="flex-1 overflow-auto">
+            <TabsContent value="week" className="flex-1 overflow-hidden p-0">
               <WeekView
                 selectedDate={selectedDate}
                 events={events}
@@ -298,7 +299,7 @@ export default function CalendarPage() {
                 onDeleteEvent={handleDeleteEvent}
               />
             </TabsContent>
-            <TabsContent value="day" className="flex-1 overflow-auto">
+            <TabsContent value="day" className="flex-1 overflow-hidden p-0">
               <DayView
                 selectedDate={selectedDate}
                 events={events}
@@ -322,5 +323,4 @@ export default function CalendarPage() {
     </>
   );
 }
-
     

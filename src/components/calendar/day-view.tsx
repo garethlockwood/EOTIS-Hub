@@ -27,7 +27,7 @@ interface DayViewProps {
   selectedDate: Date;
   events: CalendarEvent[];
   zoomLevel: number;
-  onNavigateDate: (date: Date) => void; // For external navigation if needed, not used for prev/next here
+  onNavigateDate: (date: Date) => void; 
   onEventClick: (event: CalendarEvent) => void;
   onDeleteEvent: (eventId: string) => void;
 }
@@ -86,9 +86,9 @@ export function DayView({ selectedDate, events, zoomLevel, onEventClick, onDelet
                 style={{
                   top: `${top}px`,
                   height: `${eventHeight}px`,
-                  backgroundColor: event.color ? `${event.color}E6` : `hsla(var(--primary)/0.9)`, // E6 for ~90% opacity
+                  backgroundColor: event.color ? `${event.color}E6` : `hsla(var(--primary)/0.9)`, 
                   color: `hsl(var(--primary-foreground))`,
-                  zIndex: 10 // Ensure events are above lines
+                  zIndex: 10 
                 }}
                 onClick={() => onEventClick(event)}
               >
