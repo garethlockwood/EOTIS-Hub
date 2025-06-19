@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -7,7 +8,7 @@ import { NAV_ITEMS } from '@/lib/constants';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { Menu, X, Settings, Bell, UserCircle } from 'lucide-react'; // Assuming UserCircle for logo placeholder
+import { Menu, X, Settings, Bell, UserCircle, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -17,66 +18,128 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { cn } from '@/lib/utils';
+
+interface SidebarNavProps {
+  isCollapsed: boolean;
+  onLinkClick?: () => void;
+  pathname: string | null;
+}
+
+const SidebarNavigation: React.FC<SidebarNavProps> = ({ isCollapsed, onLinkClick, pathname }) => (
+  <nav className={cn("flex flex-col gap-2", isCollapsed ? "px-2" : "px-4")}>
+    {NAV_ITEMS.map((item) => (
+      <Button
+        key={item.title}
+        asChild
+        variant={pathname === item.href ? 'default' : 'ghost'}
+        className={cn(
+          "justify-start h-10 w-full",
+          isCollapsed && "px-0 justify-center"
+        )}
+        onClick={onLinkClick}
+        title={isCollapsed ? item.title : undefined}
+      >
+        <Link href={item.href} className={cn("flex items-center gap-3 w-full", isCollapsed && "justify-center")}>
+          <item.icon className="h-5 w-5 flex-shrink-0" />
+          {!isCollapsed && <span className="truncate">{item.title}</span>}
+        </Link>
+      </Button>
+    ))}
+  </nav>
+);
 
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [isDesktopSidebarCollapsed, setIsDesktopSidebarCollapsed] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
     setIsMounted(true);
+    // Optional: Load sidebar state from localStorage to persist user preference
+    // const savedState = localStorage.getItem('sidebarCollapsed');
+    // if (savedState !== null) {
+    //   setIsDesktopSidebarCollapsed(JSON.parse(savedState));
+    // }
   }, []);
 
+  // Optional: Save sidebar state to localStorage
+  // useEffect(() => {
+  //   if (isMounted) {
+  //     localStorage.setItem('sidebarCollapsed', JSON.stringify(isDesktopSidebarCollapsed));
+  //   }
+  // }, [isDesktopSidebarCollapsed, isMounted]);
+
   if (!isMounted) {
-    return null; // Or a loading spinner
+    // Return null or a loading skeleton if using localStorage to prevent hydration mismatch
+    return null; 
   }
 
-  const SidebarContentNav = () => (
-    <nav className="flex flex-col gap-2 px-4">
-      {NAV_ITEMS.map((item) => (
-        <Button
-          key={item.title}
-          asChild
-          variant={pathname === item.href ? 'default' : 'ghost'}
-          className="justify-start"
-          onClick={() => setIsSidebarOpen(false)}
-        >
-          <Link href={item.href} className="flex items-center gap-3">
-            <item.icon className="h-5 w-5" />
-            {item.title}
-          </Link>
-        </Button>
-      ))}
-    </nav>
-  );
+  const handleMobileLinkClick = () => {
+    setIsMobileSidebarOpen(false);
+  };
 
   return (
     <div className="flex min-h-screen w-full bg-background">
       {/* Desktop Sidebar */}
-      <aside className="hidden md:flex md:w-64 flex-col border-r bg-card transition-all">
-        <div className="flex h-16 items-center border-b px-6">
-          <Link href="/dashboard" className="flex items-center gap-2 font-semibold font-headline text-primary">
-            <UserCircle className="h-7 w-7" /> {/* Placeholder Logo */}
-            <span>EOTIS Hub</span>
+      <aside className={cn(
+        "hidden md:flex md:flex-col border-r bg-card transition-all duration-300 ease-in-out relative",
+        isDesktopSidebarCollapsed ? "md:w-20" : "md:w-64"
+      )}>
+        <div className={cn(
+          "flex h-16 items-center border-b",
+          isDesktopSidebarCollapsed ? "px-2 justify-center" : "px-6" // Adjusted padding for logo area
+        )}>
+          <Link href="/dashboard" className={cn(
+              "flex items-center gap-2 font-semibold font-headline text-primary",
+              isDesktopSidebarCollapsed && "justify-center w-full"
+          )}>
+            <UserCircle className="h-7 w-7 flex-shrink-0" />
+            {!isDesktopSidebarCollapsed && <span className="truncate">EOTIS Hub</span>}
           </Link>
         </div>
         <ScrollArea className="flex-1 py-4">
-          <SidebarContentNav />
+          <SidebarNavigation 
+            isCollapsed={isDesktopSidebarCollapsed} 
+            pathname={pathname} 
+          />
         </ScrollArea>
-        <div className="mt-auto p-4 border-t">
-          <Button variant="ghost" className="w-full justify-start gap-2">
-            <Settings className="h-5 w-5" />
-            Settings
+        <div className={cn(
+          "mt-auto border-t",
+          isDesktopSidebarCollapsed ? "p-2" : "p-4" // Adjusted padding for settings
+        )}>
+          <Button
+            variant="ghost"
+            className={cn(
+              "w-full justify-start gap-2 h-10",
+              isDesktopSidebarCollapsed ? "px-0 justify-center" : "px-3"
+            )}
+            title={isDesktopSidebarCollapsed ? "Settings" : undefined}
+          >
+            <Settings className="h-5 w-5 flex-shrink-0" />
+            {!isDesktopSidebarCollapsed && <span className="truncate">Settings</span>}
           </Button>
         </div>
+
+        {/* Desktop Sidebar Toggle Button */}
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => setIsDesktopSidebarCollapsed(!isDesktopSidebarCollapsed)}
+          className="absolute top-1/2 -right-[18px] transform -translate-y-1/2 z-20 h-9 w-9 rounded-full hidden md:flex items-center justify-center border-2 bg-background hover:bg-muted shadow-md"
+          aria-label={isDesktopSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        >
+          {isDesktopSidebarCollapsed ? <ChevronsRight className="h-5 w-5" /> : <ChevronsLeft className="h-5 w-5" />}
+        </Button>
       </aside>
 
       <div className="flex flex-1 flex-col">
         {/* Mobile Header & Desktop Header */}
-        <header className="sticky top-0 z-10 flex h-16 items-center gap-4 border-b bg-card px-4 md:px-6">
+        <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-card px-4 md:px-6">
           {/* Mobile Sidebar Trigger */}
-          <Sheet open={isSidebarOpen} onOpenChange={setIsSidebarOpen}>
+          <Sheet open={isMobileSidebarOpen} onOpenChange={setIsMobileSidebarOpen}>
             <SheetTrigger asChild className="md:hidden">
               <Button variant="outline" size="icon">
                 <Menu className="h-6 w-6" />
@@ -86,26 +149,29 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <SheetContent side="left" className="flex flex-col p-0 w-64">
               <div className="flex h-16 items-center border-b px-6">
                 <Link href="/dashboard" className="flex items-center gap-2 font-semibold font-headline text-primary">
-                  <UserCircle className="h-7 w-7" /> {/* Placeholder Logo */}
+                  <UserCircle className="h-7 w-7 flex-shrink-0" />
                   <span>EOTIS Hub</span>
                 </Link>
-                <Button variant="ghost" size="icon" onClick={() => setIsSidebarOpen(false)} className="ml-auto">
+                <Button variant="ghost" size="icon" onClick={() => setIsMobileSidebarOpen(false)} className="ml-auto">
                   <X className="h-6 w-6" />
                 </Button>
               </div>
               <ScrollArea className="flex-1 py-4">
-                <SidebarContentNav />
+                <SidebarNavigation 
+                  isCollapsed={false}
+                  onLinkClick={handleMobileLinkClick} 
+                  pathname={pathname}
+                />
               </ScrollArea>
               <div className="mt-auto p-4 border-t">
-                <Button variant="ghost" className="w-full justify-start gap-2">
-                  <Settings className="h-5 w-5" />
-                  Settings
+                <Button variant="ghost" className="w-full justify-start gap-2 h-10">
+                  <Settings className="h-5 w-5 flex-shrink-0" />
+                  <span>Settings</span>
                 </Button>
               </div>
             </SheetContent>
           </Sheet>
           
-          {/* Desktop: App name (optional, if not in sidebar) or breadcrumbs */}
           <div className="hidden md:block font-headline text-lg font-semibold">
             {NAV_ITEMS.find(item => pathname.startsWith(item.href))?.title || 'EOTIS Hub'}
           </div>
@@ -137,7 +203,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        {/* Main Content */}
         <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">
           {children}
         </main>
