@@ -95,3 +95,13 @@ export interface ContentDocument {
   description?: string;
   tags?: string[];
 }
+
+export interface EHCPDocument {
+  id: string;
+  name: string;
+  uploadDate: string; // ISO string e.g. "2024-07-25"
+  status: 'Current' | 'Previous';
+  fileUrl: string;
+  fileType: 'pdf' | 'docx';
+  description?: string;
+}

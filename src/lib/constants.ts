@@ -1,5 +1,5 @@
-import type { NavItem, UpcomingLesson, UnpaidInvoice, ScheduledMeeting, TodoItem, StaffMember, FinancialDocument, ContentDocument, CalendarEvent } from '@/types';
-import { LayoutDashboard, CalendarDays, Users, CreditCard, FolderKanban, Sparkles, Bot, UserCircle2 as ProfileIcon } from 'lucide-react'; // Changed User to UserCircle2 for profile consistency
+import type { NavItem, UpcomingLesson, UnpaidInvoice, ScheduledMeeting, TodoItem, StaffMember, FinancialDocument, ContentDocument, CalendarEvent, EHCPDocument } from '@/types';
+import { LayoutDashboard, CalendarDays, Users, CreditCard, FolderKanban, Sparkles, Bot, UserCircle2 as ProfileIcon, ClipboardList } from 'lucide-react'; // Changed User to UserCircle2 for profile consistency
 
 export const NAV_ITEMS: NavItem[] = [
   { title: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -7,6 +7,7 @@ export const NAV_ITEMS: NavItem[] = [
   { title: 'Staff Directory', href: '/staff', icon: Users },
   { title: 'Finances', href: '/finances', icon: CreditCard },
   { title: 'Content Repository', href: '/repository', icon: FolderKanban },
+  { title: 'EHCP Documents', href: '/ehcp', icon: ClipboardList },
   { title: 'AI Assistant', href: '/assistant', icon: Bot },
   // Example of adding Profile to main nav, if desired:
   // { title: 'Profile', href: '/profile', icon: ProfileIcon },
@@ -60,3 +61,9 @@ export const PLACEHOLDER_CALENDAR_EVENTS: CalendarEvent[] = [
 ];
 
 export const TUTOR_NAMES: string[] = PLACEHOLDER_STAFF.filter(s => s.type === 'Tutor').map(s => s.name);
+
+export const PLACEHOLDER_EHCP_DOCS: EHCPDocument[] = [
+  { id: 'ehcp1', name: 'EHCP Final Version - 2024.pdf', uploadDate: '2024-03-15', status: 'Current', fileUrl: '#', fileType: 'pdf', description: 'The current final EHC Plan for the student.' },
+  { id: 'ehcp2', name: 'EHCP Draft - Jan 2024.docx', uploadDate: '2024-01-20', status: 'Previous', fileUrl: '#', fileType: 'docx', description: 'Draft version submitted in January.' },
+  { id: 'ehcp3', name: 'EHCP Annual Review - 2023.pdf', uploadDate: '2023-04-10', status: 'Previous', fileUrl: '#', fileType: 'pdf', description: 'Documentation from the 2023 annual review.' },
+];
