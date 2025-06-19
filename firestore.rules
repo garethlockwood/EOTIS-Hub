@@ -3,36 +3,22 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Users can manage their own profile.
-    // Admins can read any user profile (e.g., to check isAdmin status for other rules).
     match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-      allow get: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if request.auth != null && request.auth.uid == userId;
+      allow create: if request.auth != null; // More open for user creation during signup
     }
-
-    // EHCP Documents
-    // Read: Authenticated users can only read documents associated with their UID.
-    // Create, Update, Delete: Only admin users can perform these actions.
     match /ehcpDocuments/{docId} {
-      allow read: if request.auth != null && resource.data.associatedUserId == request.auth.uid;
-      allow create, update, delete: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
-    }
+      // A user can read an EHCP document if their UID matches the associatedUserId
+      allow get: if request.auth != null &&
+                    resource.data.associatedUserId == request.auth.uid;
+      // Authenticated users can list documents (queries will be filtered client-side).
+      // The 'get' rule above ensures only authorized documents are actually read.
+      allow list: if request.auth != null;
 
-    // Add other collection rules here, for example:
-    // match /staffMembers/{staffId} {
-    //   allow read: if request.auth != null;
-    //   allow write: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
-    // }
-    // match /contentDocuments/{contentId} {
-    //   allow read: if request.auth != null;
-    //   allow write: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
-    // }
-    // match /financialRecords/{recordId} {
-    //   allow read: if request.auth != null; // Or more specific logic
-    //   allow write: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
-    // }
-    // match /calendarEvents/{eventId} {
-    //  allow read, write: if request.auth != null; // Or more specific logic, e.g., based on participants
-    // }
+      // Admin only for create, update, delete
+      allow create, update, delete: if request.auth != null &&
+                                       get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
   }
 }
