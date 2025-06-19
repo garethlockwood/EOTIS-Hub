@@ -11,17 +11,20 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Switch } from '@/components/ui/switch';
-import { Loader2, Save, Upload, Shield, Palette, User as UserIcon, KeyRound, QrCode } from 'lucide-react';
+import { Loader2, Save, Shield, Palette, User as UserIcon, KeyRound, QrCode } from 'lucide-react'; // Removed Upload icon as it's implicit
 import { useForm, type SubmitHandler, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import Image from 'next/image';
 import { useToast } from '@/hooks/use-toast';
+import type { User } from '@/types';
 
 const profileSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters.').optional(),
-  // email: z.string().email().optional(), // Email likely not editable or handled differently
-  avatarFile: z.instanceof(FileList).optional(),
+  avatarFile: z.custom<FileList>((val) => val instanceof FileList, "Please upload a file")
+                .optional()
+                .refine(files => !files || files.length === 0 || (files?.[0]?.size ?? 0) <= 5 * 1024 * 1024, `Max file size is 5MB.`)
+                .refine(files => !files || files.length === 0 || ['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(files?.[0]?.type ?? ''), 'Only .jpg, .jpeg, .png, .webp and .gif formats are supported.'),
 });
 type ProfileFormValues = z.infer<typeof profileSchema>;
 
@@ -50,6 +53,7 @@ export default function ProfilePage() {
   const [isSettingUpMfa, setIsSettingUpMfa] = useState(false);
   const [mfaQrCodeUrl, setMfaQrCodeUrl] = useState<string | null>(null);
   const [mfaRecoveryCodes, setMfaRecoveryCodes] = useState<string[]>([]);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(user?.avatarUrl || null);
 
 
   const profileForm = useForm<ProfileFormValues>({
@@ -67,23 +71,77 @@ export default function ProfilePage() {
     defaultValues: { code: '' },
   });
 
+  const handleAvatarChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (files && files.length > 0) {
+      const file = files[0];
+      // Validate file type and size again for immediate feedback if needed, though Zod handles it on submit
+      if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type)) {
+        toast({ variant: "destructive", title: "Invalid File Type", description: "Please select a JPG, PNG, WEBP, or GIF image."});
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) { // 5MB
+        toast({ variant: "destructive", title: "File Too Large", description: "Maximum avatar size is 5MB."});
+        return;
+      }
+      
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setAvatarPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+      profileForm.setValue('avatarFile', files, { shouldValidate: true });
+    } else {
+      // If no file is selected (e.g., user cancels file dialog), reset to current user avatar or default
+      setAvatarPreview(user?.avatarUrl || null);
+      profileForm.setValue('avatarFile', undefined);
+    }
+  };
+
   const onProfileSubmit: SubmitHandler<ProfileFormValues> = async (data) => {
     setIsSavingProfile(true);
-    // In a real app, handle avatarFile upload first, get URL, then updateProfile
-    // For now, we'll just pass the name.
-    await updateProfile({ name: data.name });
-    if (data.avatarFile && data.avatarFile.length > 0) {
-        toast({ title: "Avatar Upload", description: "Avatar upload is a placeholder. Real implementation needed."});
+    const updatePayload: Partial<Pick<User, 'name' | 'avatarUrl'>> = {};
+
+    if (data.name && data.name !== user?.name) {
+      updatePayload.name = data.name;
     }
-    toast({ title: "Profile Updated", description: "Your profile has been successfully updated." });
+
+    if (data.avatarFile && data.avatarFile.length > 0) {
+      const file = data.avatarFile[0];
+      try {
+        const avatarDataUri = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+        updatePayload.avatarUrl = avatarDataUri;
+      } catch (error) {
+        console.error("Error reading avatar file:", error);
+        toast({ variant: "destructive", title: "Avatar Error", description: "Could not process the avatar image." });
+        setIsSavingProfile(false);
+        return;
+      }
+    } else if (avatarPreview === null && user?.avatarUrl) { 
+      // If preview was cleared and there was an old avatar, it means user wants to remove it
+      // This logic might need refinement based on desired "remove avatar" behavior
+      // For now, if avatarFile is not provided, we don't change avatarUrl unless explicitly handled
+    }
+
+
+    if (Object.keys(updatePayload).length > 0) {
+      await updateProfile(updatePayload);
+      toast({ title: "Profile Updated", description: "Your profile has been successfully updated." });
+    } else {
+      toast({ title: "No Changes", description: "No changes were detected in your profile." });
+    }
+    
     setIsSavingProfile(false);
   };
 
   const onPasswordSubmit: SubmitHandler<PasswordFormValues> = async (data) => {
     setIsChangingPassword(true);
     await changePassword(data.currentPassword, data.newPassword);
-    // Real app would provide feedback from changePassword function.
-    // For mock, we alert in useAuth. We can also toast here.
     toast({ title: "Password Change Request", description: "Password change attempt submitted (mocked)." });
     passwordForm.reset();
     setIsChangingPassword(false);
@@ -98,20 +156,19 @@ export default function ProfilePage() {
       mfaCodeForm.reset();
     } catch (error) {
       toast({ variant: "destructive", title: "MFA Error", description: "Could not start MFA setup." });
-      setIsSettingUpMfa(false); // Ensure loading state is reset on error
+      setIsSettingUpMfa(false);
     }
-    // setIsSettingUpMfa(false) will be handled by confirm or cancel
   };
 
   const onMfaCodeSubmit: SubmitHandler<MfaCodeFormValues> = async (data) => {
-    setIsSettingUpMfa(true); // Keep loading
+    setIsSettingUpMfa(true); 
     try {
       await confirmMfa(data.code);
-      setMfaQrCodeUrl(null); // Clear QR after confirmation
+      setMfaQrCodeUrl(null); 
       setMfaRecoveryCodes([]);
       toast({ title: "MFA Setup Complete", description: "Multi-Factor Authentication has been enabled." });
     } catch (error) {
-      toast({ variant: "destructive", title: "MFA Confirmation Failed", description: "The MFA code was invalid. Please try again." });
+      toast({ variant: "destructive", title: "MFA Confirmation Failed", description: (error as Error).message || "The MFA code was invalid." });
     }
     setIsSettingUpMfa(false);
     mfaCodeForm.reset();
@@ -121,7 +178,6 @@ export default function ProfilePage() {
     setMfaQrCodeUrl(null);
     setMfaRecoveryCodes([]);
     setIsSettingUpMfa(false); 
-    // Optionally call a backend endpoint to cancel any pending MFA setup if needed
   };
   
   const handleDisableMfa = async () => {
@@ -130,10 +186,21 @@ export default function ProfilePage() {
       await disableMfa();
       toast({ title: "MFA Disabled", description: "Multi-Factor Authentication has been disabled." });
     } catch (error) {
-      toast({ variant: "destructive", title: "MFA Error", description: "Could not disable MFA." });
+      toast({ variant: "destructive", title: "MFA Error", description: (error as Error).message || "Could not disable MFA." });
     }
     setIsSettingUpMfa(false);
   };
+
+  React.useEffect(() => {
+    // Update avatar preview if user avatar changes from context (e.g. after initial load)
+    if (user?.avatarUrl && user.avatarUrl !== avatarPreview) {
+        setAvatarPreview(user.avatarUrl);
+    }
+     // Update name in form if user context changes
+    if (user?.name && user.name !== profileForm.getValues('name')) {
+        profileForm.setValue('name', user.name);
+    }
+  }, [user, profileForm, avatarPreview]);
 
 
   if (authLoading || !user) {
@@ -147,39 +214,47 @@ export default function ProfilePage() {
   return (
     <>
       <PageHeader title="My Profile & Settings" description="Manage your account details, security, and application preferences." />
-      <Tabs defaultValue="profile" className="space-y-4">
+      <Tabs defaultValue="profile" className="space-y-4" onValueChange={() => {
+          // Reset avatar preview to current user's avatar when switching tabs if not saving
+          if (!isSavingProfile) setAvatarPreview(user.avatarUrl || null);
+          profileForm.reset({ name: user.name || '', avatarFile: undefined });
+      }}>
         <TabsList>
           <TabsTrigger value="profile"><UserIcon className="mr-2 h-4 w-4" />Profile</TabsTrigger>
           <TabsTrigger value="security"><Shield className="mr-2 h-4 w-4" />Security</TabsTrigger>
           <TabsTrigger value="appearance"><Palette className="mr-2 h-4 w-4" />Appearance</TabsTrigger>
         </TabsList>
 
-        {/* Profile Tab */}
         <TabsContent value="profile">
           <Card>
             <CardHeader>
               <CardTitle>Personal Information</CardTitle>
-              <CardDescription>Update your name and avatar.</CardDescription>
+              <CardDescription>Update your name and avatar. Max avatar size: 5MB (JPG, PNG, GIF, WEBP).</CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={profileForm.handleSubmit(onProfileSubmit)} className="space-y-6">
                 <div className="flex items-center space-x-6">
                   <Avatar className="h-24 w-24">
-                    <AvatarImage src={user.avatarUrl || undefined} alt={user.name || 'User'} data-ai-hint="user avatar" />
+                    <AvatarImage src={avatarPreview || undefined} alt={user.name || 'User'} data-ai-hint="user avatar" />
                     <AvatarFallback>{user.name ? user.name.substring(0,2).toUpperCase() : 'U'}</AvatarFallback>
                   </Avatar>
                   <div className="flex-grow">
-                    <Label htmlFor="avatarFile">Change Avatar (PNG, JPG)</Label>
-                    <Controller
+                    <Label htmlFor="avatarFile">Change Avatar</Label>
+                     <Controller
                         name="avatarFile"
                         control={profileForm.control}
-                        render={({ field: { onChange, value, ...restField } }) => (
+                        render={({ field }) => ( // Omit `value` from field to use controlled input properly
                             <Input 
                                 id="avatarFile" 
                                 type="file" 
-                                accept="image/png, image/jpeg"
-                                onChange={(e) => onChange(e.target.files)}
-                                {...restField}
+                                accept="image/png, image/jpeg, image/gif, image/webp"
+                                onChange={(e) => {
+                                    field.onChange(e.target.files); // Update RHF field state
+                                    handleAvatarChange(e);         // Update preview
+                                }}
+                                onBlur={field.onBlur}
+                                ref={field.ref}
+                                name={field.name}
                                 className="mt-1"
                             />
                         )}
@@ -200,7 +275,7 @@ export default function ProfilePage() {
                   <p className="text-xs text-muted-foreground mt-1">Email address cannot be changed.</p>
                 </div>
                 
-                <Button type="submit" disabled={isSavingProfile}>
+                <Button type="submit" disabled={isSavingProfile || !profileForm.formState.isDirty}>
                   {isSavingProfile ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                   Save Changes
                 </Button>
@@ -209,7 +284,6 @@ export default function ProfilePage() {
           </Card>
         </TabsContent>
 
-        {/* Security Tab */}
         <TabsContent value="security">
           <div className="space-y-6">
             <Card>
@@ -298,7 +372,6 @@ export default function ProfilePage() {
           </div>
         </TabsContent>
 
-        {/* Appearance Tab */}
         <TabsContent value="appearance">
           <Card>
             <CardHeader>
