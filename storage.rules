@@ -1,0 +1,32 @@
+
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Helper function to check admin status based on Firestore document
+    // Note: This requires the Firebase Auth user to have a UID,
+    // and a corresponding document in /users/{uid} with an isAdmin field.
+    function isUserAdmin() {
+      return request.auth != null && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
+
+    // Avatars: users can write to their own avatar path, anyone can read.
+    match /avatars/{userId}/{allPaths=**} {
+      allow read: if true; // Public read access for avatars
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // EHCP Documents: admins can write, anyone can read.
+    match /ehcp_documents/{docId}/{allPaths=**} {
+      allow read: if true; // Public read access for EHCP documents
+      allow write: if isUserAdmin();
+    }
+
+    // Add rules for other storage paths as needed
+    // match /someOtherPath/{allPaths=**} {
+    //   allow read: if request.auth != null;
+    //   allow write: if request.auth != null; // Or more specific rules
+    // }
+  }
+}
