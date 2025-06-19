@@ -1,3 +1,4 @@
+
 import type { LucideIcon } from 'lucide-react';
 
 export interface NavItem {
@@ -9,13 +10,13 @@ export interface NavItem {
 }
 
 export interface User {
-  id: string;
-  name?: string | null;
-  email?: string | null;
-  avatarUrl?: string | null;
-  isMfaEnabled?: boolean;
-  mustChangePassword?: boolean; // Added for force password change flow
-  isAdmin?: boolean; // Added for admin rights
+  id: string; // Firebase UID
+  name?: string | null; // Firebase displayName or from Firestore
+  email?: string | null; // Firebase email
+  avatarUrl?: string | null; // Firebase photoURL or from Firestore (field 'avatarURL')
+  isMfaEnabled?: boolean; // Custom, from Firestore
+  mustChangePassword?: boolean; // Custom, from Firestore
+  isAdmin?: boolean; // Custom, from Firestore
 }
 
 export interface TodoItem {
@@ -77,31 +78,39 @@ export interface StaffMember {
 }
 
 export interface FinancialDocument {
-  id: string;
+  id:string; // Firestore document ID
   name: string;
   type: 'Invoice' | 'Receipt' | 'FinancialReport';
-  uploadDate: string; // e.g., "2024-07-20"
-  fileUrl?: string; // Placeholder or link
+  uploadDate: string; // ISO string (from Firestore Timestamp)
+  fileUrl?: string;
+  storagePath?: string;
   amount?: number;
   status?: 'Paid' | 'Unpaid' | 'Overdue';
+  uploaderUid?: string;
 }
 
 export interface ContentDocument {
-  id: string;
+  id: string; // Firestore document ID
   name: string;
   type: 'LessonPlan' | 'Report' | 'Resource' | 'Invoice' | 'General';
-  uploadDate: string; // e.g., "2024-07-20"
-  fileUrl?: string; // Placeholder or link
+  uploadDate: string; // ISO string (from Firestore Timestamp)
+  fileUrl?: string;
+  storagePath?: string;
   description?: string;
   tags?: string[];
+  uploaderUid?: string;
 }
 
 export interface EHCPDocument {
-  id: string;
+  docId: string; // Firestore document ID
   name: string;
-  uploadDate: string; // ISO string e.g. "2024-07-25"
+  uploadDate: string; // ISO string (converted from Firestore Timestamp)
   status: 'Current' | 'Previous';
-  fileUrl: string;
+  fileUrl: string; // Download URL from Firebase Storage
+  storagePath: string; // Path in Firebase Storage (for deletion)
   fileType: 'pdf' | 'docx';
   description?: string;
+  uploaderUid: string; // UID of the admin who uploaded
+  uploaderName?: string; // Optional: denormalized name of uploader
+  originalFileName: string;
 }
