@@ -4,21 +4,26 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     match /users/{userId} {
-      allow read: if request.auth != null && request.auth.uid == userId;
-      allow write: if request.auth != null && request.auth.uid == userId;
-      allow create: if request.auth != null; // More open for user creation during signup
+      allow read, update: if request.auth != null && request.auth.uid == userId;
+      // Allow admins to update any user document (e.g., to set isAdmin, mustChangePassword)
+      // For more granular control, you might check specific fields being changed.
+      allow update: if request.auth != null &&
+                       get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+      allow create: if request.auth != null; // Allows new user doc creation upon signup/first login
     }
     match /ehcpDocuments/{docId} {
-      // A user can read an EHCP document if their UID matches the associatedUserId
-      allow get: if request.auth != null &&
-                    resource.data.associatedUserId == request.auth.uid;
-      // Authenticated users can list documents (queries will be filtered client-side).
-      // The 'get' rule above ensures only authorized documents are actually read.
+      // Allow authenticated users to list documents.
+      // The actual filtering by associatedUserId will be done in the application query.
+      // The 'get' rule below will ensure each document returned also meets the criteria.
       allow list: if request.auth != null;
 
-      // Admin only for create, update, delete
+      // Allow users to get/read a specific document if it's associated with them
+      allow get: if request.auth != null &&
+                    resource.data.associatedUserId == request.auth.uid;
+
+      // Admins can create, update, delete any EHCP document
       allow create, update, delete: if request.auth != null &&
-                                       get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+                                      get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
     }
   }
 }
