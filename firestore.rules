@@ -6,25 +6,27 @@ service cloud.firestore {
 
     // Users Collection
     match /users/{userId} {
-      allow read: if request.auth != null && request.auth.uid == userId;
+      allow read: if request.auth != null && (request.auth.uid == userId || 
+                    (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+                     get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isAdmin', false) == true));
       allow write: if request.auth != null && request.auth.uid == userId;
-      // Admins can read any user profile (optional, for admin panel features)
-      // allow get: if request.auth != null &&
-      //               (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-      //                get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isAdmin', false) == true);
+      // Admins can list users if needed for an admin panel (add this if you build such a feature)
+      // allow list: if request.auth != null &&
+      //                  (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+      //                   get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isAdmin', false) == true);
     }
 
     // EHCP Documents Collection
     match /ehcpDocuments/{docId} {
-      allow list: if request.auth != null; // Authenticated users can attempt to list, query must filter.
+      allow list: if request.auth != null; // Query must enforce user-specific or admin access
 
-      allow get: if request.auth != null && request.auth.uid != null &&
+      allow get: if request.auth != null &&
                    (resource.data.associatedUserId == request.auth.uid ||
-                    (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+                    (request.auth.uid != null && exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
                      get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isAdmin', false) == true));
 
-      allow write: if request.auth != null && request.auth.uid != null &&
-                     (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+      allow write: if request.auth != null &&
+                     (request.auth.uid != null && exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
                       get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isAdmin', false) == true);
     }
 
@@ -38,23 +40,30 @@ service cloud.firestore {
 service firebase.storage {
   match /b/{bucket}/o {
     // User Avatars
-    // Example path: avatars/USER_UID/avatar.png
-    match /avatars/{userId}/{allAvatarPaths=**} {
-      allow read: if request.auth != null; // Or `if true;` for public avatars
-      allow write: if request.auth != null && request.auth.uid == userId;
+    // Users can only write their own avatar, named avatar.<extension>
+    // Path example: /avatars/USER_ID/avatar.png
+    match /avatars/{userId}/{fileName} {
+      // Allow read if user is authenticated. Consider 'if true;' if avatars are public.
+      allow read: if request.auth != null;
+      // Allow write ONLY if the authenticated user's ID matches the {userId} in the path
+      // AND the file name starts with "avatar." and has a common image extension.
+      allow write: if request.auth != null && 
+                      request.auth.uid == userId && 
+                      fileName.matches('avatar\\.(png|jpg|jpeg|gif|webp)');
     }
 
     // EHCP Documents
-    // Example path: ehcp_documents/DOCUMENT_ID/fileName.pdf
-    // Uploads are handled by server actions which should verify admin status.
-    match /ehcp_documents/{documentId}/{allEhcpPaths=**} {
-      allow read: if request.auth != null; // Allow authenticated users to read if they have the URL.
-      allow write: if request.auth != null; // Relies on server actions to gate uploads to admins only.
-                                           // The user calling the server action (admin) must be authenticated.
+    // Path example: /ehcp_documents/DOCUMENT_ID/original_filename.pdf
+    match /ehcp_documents/{documentId}/{originalFileName} {
+      // Allow read if user is authenticated. App logic should control who gets the download URL
+      // based on Firestore document access (which checks associatedUserId or admin status).
+      allow read: if request.auth != null;
+      // Allow write if user is authenticated. The server action (addEhcpDocument)
+      // is responsible for ensuring only admins can trigger this upload.
+      allow write: if request.auth != null;
     }
 
-    // Deny all other paths in Storage by default
-    // This explicit deny is good practice, though storage is default deny without rules.
+    // Default deny all other paths in Storage
     match /{allPaths=**} {
       allow read, write: if false;
     }
