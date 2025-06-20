@@ -1,3 +1,4 @@
+
 // src/app/(app)/profile/page.tsx
 'use client';
 
@@ -123,7 +124,10 @@ function ProfilePageContent() {
 
     if (data.avatarFile && data.avatarFile.length > 0) {
       const file = data.avatarFile[0];
-      const storageRef = ref(storage, `avatars/${auth.currentUser.uid}/${file.name}`);
+      const fileExtension = file.name.split('.').pop();
+      const newFileName = `avatar.${fileExtension}`;
+      const storagePath = `avatars/${auth.currentUser.uid}/${newFileName}`;
+      const storageRef = ref(storage, storagePath);
       
       try {
         const uploadTask = uploadBytesResumable(storageRef, file);
@@ -444,3 +448,4 @@ export default function ProfilePage() {
     </Suspense>
   )
 }
+
