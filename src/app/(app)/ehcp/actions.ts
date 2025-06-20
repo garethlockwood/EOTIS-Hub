@@ -1,17 +1,17 @@
-
 'use server';
 
-import { auth, storage } from '@/lib/firebase'; // db is removed, storage is kept for file operations
-import { Timestamp } from 'firebase/firestore'; // Timestamp is still useful
-import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import { Timestamp } from 'firebase/firestore';
 import type { EHCPDocument } from '@/types';
 import { revalidatePath } from 'next/cache';
+import { tmpdir } from 'os';
+import { writeFile, unlink } from 'fs/promises';
+import path from 'path';
 
-// Dynamically import dbAdmin from firebase-admin
-// This top-level await is fine in server components/actions
-const { dbAdmin } = await import('@/lib/firebase-admin');
+const { dbAdmin, storageAdmin } = await import('@/lib/firebase-admin');
+const bucket = storageAdmin.bucket();
 
-// Helper to check admin status using Admin SDK
+console.log('📦 Firebase Admin SDK using bucket:', bucket.name);
+
 async function isAdmin(uid: string | undefined): Promise<boolean> {
   if (!uid) return false;
   try {
@@ -19,28 +19,17 @@ async function isAdmin(uid: string | undefined): Promise<boolean> {
     const userDocSnap = await userDocRef.get();
     return userDocSnap.exists && userDocSnap.data()?.isAdmin === true;
   } catch (error) {
-    console.error(`Error checking admin status for UID ${uid}:`, error);
+    console.error(`[isAdmin] Error checking admin status for UID ${uid}:`, error);
     return false;
   }
 }
 
-export async function getEhcpDocuments(actingUserId: string): Promise<{ documents?: EHCPDocument[]; error?: string }> {
-  console.log(`[Server Action getEhcpDocuments] actingUserId from client: "${actingUserId}"`);
-  const serverAuthUser = auth.currentUser; // This uses client SDK auth, usually null in server actions unless special setup
-  console.log(`[Server Action getEhcpDocuments] auth.currentUser on server (UID):`, serverAuthUser ? serverAuthUser.uid : 'null');
-
-  if (!serverAuthUser) {
-    console.warn('[Server Action getEhcpDocuments] auth.currentUser is null on the server via client SDK. This is expected if not using client auth context propagation. Admin SDK will operate with service account privileges.');
-  } else if (serverAuthUser.uid !== actingUserId) {
-    console.warn(`[Server Action getEhcpDocuments] Mismatch: serverAuthUser.uid (${serverAuthUser.uid}) !== actingUserId (${actingUserId}). This implies client auth context was available but mismatched.`);
-  }
-
+export async function getEhcpDocuments(
+  actingUserId: string
+): Promise<{ documents?: EHCPDocument[]; error?: string }> {
   if (!actingUserId || typeof actingUserId !== 'string' || actingUserId.trim() === '') {
-    console.error('[Client Input Error] Error in getEhcpDocuments: Invalid or missing actingUserId provided to server action.');
-    return { error: 'Invalid user identifier for fetching documents.' };
+    return { error: 'Invalid user identifier.' };
   }
-
-  console.log(`Fetching EHCP documents with Admin SDK for associatedUserId: "${actingUserId}"`);
 
   try {
     const snapshot = await dbAdmin
@@ -54,8 +43,7 @@ export async function getEhcpDocuments(actingUserId: string): Promise<{ document
       return {
         docId: docSnap.id,
         name: data.name,
-        // Firestore Admin SDK Timestamp needs to be converted
-        uploadDate: data.uploadDate ? (data.uploadDate.toDate ? data.uploadDate.toDate().toISOString() : new Date(data.uploadDate._seconds * 1000).toISOString()) : '',
+        uploadDate: data.uploadDate.toDate().toISOString(),
         status: data.status,
         fileUrl: data.fileUrl,
         storagePath: data.storagePath,
@@ -69,66 +57,52 @@ export async function getEhcpDocuments(actingUserId: string): Promise<{ document
     });
     return { documents };
   } catch (error: any) {
-    console.error('Error fetching EHCP documents (Admin SDK):', error);
-    let constructedErrorMessage = `Failed to fetch documents. Code: ${error.code || 'N/A'}. Message: ${error.message || 'Unknown error'}`;
-    if (error.details) constructedErrorMessage += ` Details: ${error.details}`;
-    return { error: constructedErrorMessage };
+    console.error('[getEhcpDocuments] Error:', error);
+    return { error: `Failed to fetch documents: ${error.message}` };
   }
 }
 
-interface AddEhcpDocumentResult {
-  success?: boolean;
-  error?: string;
-  document?: EHCPDocument;
-}
-
-export async function addEhcpDocument(formData: FormData, actingAdminUserId: string): Promise<AddEhcpDocumentResult> {
-  if (!actingAdminUserId) {
-    return { error: 'Admin user not authenticated for action.' };
-  }
-  if (!(await isAdmin(actingAdminUserId))) {
-    return { error: 'User performing action does not have admin privileges.' };
+export async function addEhcpDocument(
+  formData: FormData,
+  actingAdminUserId: string
+): Promise<{ success?: boolean; error?: string; document?: EHCPDocument }> {
+  if (!actingAdminUserId || !(await isAdmin(actingAdminUserId))) {
+    return { error: 'Admin privileges required.' };
   }
 
   const file = formData.get('file') as File | null;
   const name = formData.get('name') as string | null;
   const description = formData.get('description') as string | null;
   const status = formData.get('status') as 'Current' | 'Previous' | null;
-  // The associatedUserId now comes from the form, validated by admin.
   const associatedUserId = formData.get('associatedUserId') as string | null;
 
-
   if (!file || !name || !status || !associatedUserId) {
-    return { error: 'Missing required fields (file, name, status, or associated user ID).' };
+    return { error: 'Missing required fields.' };
   }
 
-  if (!['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'].includes(file.type)) {
-    return { error: 'Invalid file type. Only PDF and DOCX are allowed.' };
-  }
-  
-  let uploaderName = 'Unknown Admin';
-  try {
-    const actingAdminUserDocRef = dbAdmin.collection('users').doc(actingAdminUserId);
-    const actingAdminUserDocSnap = await actingAdminUserDocRef.get();
-    if (actingAdminUserDocSnap.exists) {
-      const adminData = actingAdminUserDocSnap.data();
-      uploaderName = adminData?.name || adminData?.email || 'Admin';
-    }
-  } catch (e) {
-    console.error("Error fetching admin uploader's name: ", e);
-  }
-
-  const fileType = file.type === 'application/pdf' ? 'pdf' : 'docx';
-  const newDocFirestoreRef = dbAdmin.collection('ehcpDocuments').doc(); 
-  const documentId = newDocFirestoreRef.id;
-  
-  // Storage operations continue to use client SDK instance for this example
-  const storagePath = `ehcp_documents/${documentId}/${file.name}`;
-  const storageRefInstance = ref(storage, storagePath);
+  const newDocRef = dbAdmin.collection('ehcpDocuments').doc();
+  const storagePath = `ehcp_documents/${newDocRef.id}/${file.name}`;
+  const tempFilePath = path.join(tmpdir(), file.name);
 
   try {
-    await uploadBytes(storageRefInstance, file);
-    const downloadURL = await getDownloadURL(storageRefInstance);
+    const buffer = Buffer.from(await file.arrayBuffer());
+    console.log(`📁 Uploading "${file.name}" to ${storagePath} (${buffer.length} bytes)`);
+
+    await writeFile(tempFilePath, buffer);
+
+    await bucket.upload(tempFilePath, {
+      destination: storagePath,
+      contentType: file.type,
+    });
+
+    await unlink(tempFilePath);
+
+    const downloadURL = `https://storage.googleapis.com/${bucket.name}/${storagePath}`;
+
+    const uploaderDoc = await dbAdmin.collection('users').doc(actingAdminUserId).get();
+    const uploaderName = uploaderDoc.exists
+      ? uploaderDoc.data()?.name || uploaderDoc.data()?.email || 'Admin'
+      : 'Admin';
 
     const newDocData = {
       name,
@@ -136,90 +110,93 @@ export async function addEhcpDocument(formData: FormData, actingAdminUserId: str
       status,
       fileUrl: downloadURL,
       storagePath,
-      fileType,
-      uploaderUid: actingAdminUserId, // Admin who uploaded
-      uploaderName: uploaderName,
+      fileType: file.type.includes('pdf') ? 'pdf' : 'docx',
+      uploaderUid: actingAdminUserId,
+      uploaderName,
       originalFileName: file.name,
-      uploadDate: Timestamp.now(), // Firestore Admin SDK Timestamp
-      associatedUserId: associatedUserId, // The user this document is for
-      docId: documentId, 
+      uploadDate: Timestamp.now(),
+      associatedUserId,
+      docId: newDocRef.id,
     };
 
-    await newDocFirestoreRef.set(newDocData);
-    
+    await newDocRef.set(newDocData);
     revalidatePath('/ehcp');
-    revalidatePath(`/ehcp?userId=${associatedUserId}`); // Revalidate for the specific user if applicable
+    revalidatePath(`/ehcp?userId=${associatedUserId}`);
 
-    // Convert Firestore Admin Timestamp to ISO string for the returned document
-    const adminTimestamp = newDocData.uploadDate as unknown as { toDate: () => Date };
-
-    return { 
-        success: true, 
-        document: {
-            ...newDocData,
-            uploadDate: adminTimestamp.toDate().toISOString(),
-        } as EHCPDocument
+    return {
+      success: true,
+      document: {
+        ...newDocData,
+        uploadDate: newDocData.uploadDate.toDate().toISOString(),
+      } as EHCPDocument,
     };
-  } catch (error: any) {
-    console.error('Error adding EHCP document (Admin SDK for Firestore, Client SDK for Storage):', error);
-    return { error: error.message || 'Failed to add document.' };
+  } catch (err: any) {
+    console.error('[addEhcpDocument] Upload failed:', err);
+    return { error: err.message || 'Upload failed.' };
   }
 }
 
-export async function deleteEhcpDocument(docId: string, storagePathToDelete: string, actingAdminUserId: string): Promise<{ success?: boolean; error?: string }> {
-  if (!actingAdminUserId) {
-    return { error: 'Admin user not authenticated for action.' };
-  }
-  if (!(await isAdmin(actingAdminUserId))) {
-    return { error: 'User performing action does not have admin privileges.' };
-  }
-
+export async function deleteEhcpDocument(
+  docId: string,
+  storagePath: string,
+  actingAdminUserId: string
+): Promise<{ success?: boolean; error?: string }> {
   try {
-    // Storage operation
-    const fileRef = ref(storage, storagePathToDelete);
-    await deleteObject(fileRef);
+    if (!actingAdminUserId) return { error: 'Admin user not authenticated.' };
 
-    // Firestore operation with Admin SDK
-    await dbAdmin.collection('ehcpDocuments').doc(docId).delete();
-    
-    revalidatePath('/ehcp');
-    // Consider revalidating specific user path if known: revalidatePath(`/ehcp?userId=...`);
-    return { success: true };
-  } catch (error:any) {
-    console.error('Error deleting EHCP document:', error);
-    if (error.code === 'storage/object-not-found') {
-        try {
-            // Firestore operation with Admin SDK
-            await dbAdmin.collection('ehcpDocuments').doc(docId).delete();
-            revalidatePath('/ehcp');
-            return { success: true, error: "File not found in storage, but Firestore entry deleted." };
-        } catch (fsError: any) {
-             return { error: `File not found in storage. Firestore delete error: ${fsError.message}` };
-        }
+    const adminDoc = await dbAdmin.collection('users').doc(actingAdminUserId).get();
+    if (!adminDoc.exists || adminDoc.data()?.isAdmin !== true) {
+      return { error: 'Only admins can delete documents.' };
     }
-    return { error: error.message || 'Failed to delete document.' };
+
+    try {
+      await bucket.file(storagePath).delete();
+      console.log(`[deleteEhcpDocument] Deleted from storage: ${storagePath}`);
+    } catch (err: any) {
+      if (err.code === 404) {
+        console.warn('[deleteEhcpDocument] File not found in storage. Proceeding with Firestore delete.');
+      } else {
+        console.error('[deleteEhcpDocument] Storage deletion error:', err);
+        return { error: 'Storage deletion failed: ' + err.message };
+      }
+    }
+
+    await dbAdmin.collection('ehcpDocuments').doc(docId).delete();
+    revalidatePath('/ehcp');
+    return { success: true };
+  } catch (error: any) {
+    console.error('[deleteEhcpDocument] Error:', error);
+    return { error: error.message || 'Unexpected error during document deletion.' };
   }
 }
 
-export async function updateEhcpDocumentStatus(docId: string, newStatus: 'Current' | 'Previous', actingAdminUserId: string): Promise<{ success?: boolean; error?: string }> {
-  if (!actingAdminUserId) {
-    return { error: 'Admin user not authenticated for action.' };
-  }
-  if (!(await isAdmin(actingAdminUserId))) {
-    return { error: 'User performing action does not have admin privileges.' };
+export async function updateEhcpDocumentStatus(
+  docId: string,
+  newStatus: 'Current' | 'Previous',
+  actingAdminUserId: string
+): Promise<{ success?: boolean; error?: string }> {
+  if (!actingAdminUserId) return { error: 'Admin user not authenticated for action.' };
+
+  const isAdmin = await (async () => {
+    try {
+      const userDoc = await dbAdmin.collection('users').doc(actingAdminUserId).get();
+      return userDoc.exists && userDoc.data()?.isAdmin === true;
+    } catch (err) {
+      console.error('[updateEhcpDocumentStatus] Admin check failed:', err);
+      return false;
+    }
+  })();
+
+  if (!isAdmin) {
+    return { error: 'User does not have admin privileges.' };
   }
 
   try {
-    // Firestore operation with Admin SDK
     await dbAdmin.collection('ehcpDocuments').doc(docId).update({ status: newStatus });
     revalidatePath('/ehcp');
-    // Consider revalidating specific user path if known: revalidatePath(`/ehcp?userId=...`);
     return { success: true };
   } catch (error: any) {
-    console.error('Error updating EHCP document status (Admin SDK):', error);
-    return { error: error.message || 'Failed to update status.' };
+    console.error('[updateEhcpDocumentStatus] Failed:', error);
+    return { error: error.message || 'Update failed.' };
   }
 }
-    
-
-    
