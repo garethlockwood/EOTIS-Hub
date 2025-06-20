@@ -90,16 +90,21 @@ export interface FinancialDocument {
 }
 
 export interface ContentDocument {
-  id: string; // Firestore document ID
-  name: string;
+  id: string;
   type: 'LessonPlan' | 'Report' | 'Resource' | 'Invoice' | 'General';
-  uploadDate: string; // ISO string (from Firestore Timestamp)
-  fileUrl?: string;
-  storagePath?: string;
-  description?: string;
-  tags?: string[];
-  uploaderUid?: string;
+  name: string;
+  uploadDate: string;
+  uploaderUid: string;
+  uploaderName: string;
+  uploaderRole: string;
+  description: string;
+  fileUrl: string;
+  storagePath: string;
+  fileType: string;
+  version: string;
+  tags: string[];
 }
+
 
 export interface EHCPDocument {
   docId: string; // Firestore document ID

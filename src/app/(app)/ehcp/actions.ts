@@ -1,6 +1,6 @@
 'use server';
 
-import { Timestamp } from 'firebase/firestore';
+import { Timestamp } from 'firebase-admin/firestore';
 import type { EHCPDocument } from '@/types';
 import { revalidatePath } from 'next/cache';
 import { tmpdir } from 'os';
@@ -9,8 +9,6 @@ import path from 'path';
 
 const { dbAdmin, storageAdmin } = await import('@/lib/firebase-admin');
 const bucket = storageAdmin.bucket();
-
-console.log('📦 Firebase Admin SDK using bucket:', bucket.name);
 
 async function isAdmin(uid: string | undefined): Promise<boolean> {
   if (!uid) return false;

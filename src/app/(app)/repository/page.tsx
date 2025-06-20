@@ -1,9 +1,7 @@
-'use client';
+"use client";
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { PageHeader } from '@/components/common/page-header';
-import { PLACEHOLDER_CONTENT_DOCS } from '@/lib/constants';
-import type { ContentDocument } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -13,16 +11,30 @@ import { Card, CardContent } from '@/components/ui/card';
 import { PlusCircle, Search, Download, Edit, Trash2, Tag } from 'lucide-react';
 import { format } from 'date-fns';
 import { useAuth } from '@/hooks/use-auth';
-// Placeholder for Add/Edit Content Document Dialog (future implementation)
-// import { ContentDocDialog } from '@/components/repository/content-doc-dialog';
+import { toast } from 'sonner';
+import type { ContentDocument } from '@/types';
+import { getContentDocuments } from './actions';
+import { ContentDocDialog } from '@/components/repository/content-doc-dialog';
 
 export default function RepositoryPage() {
   const { user } = useAuth();
-  const [documents, setDocuments] = useState<ContentDocument[]>(PLACEHOLDER_CONTENT_DOCS);
+  const [documents, setDocuments] = useState<ContentDocument[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'all' | ContentDocument['type']>('all');
-  // const [isFormOpen, setIsFormOpen] = useState(false);
-  // const [editingDoc, setEditingDoc] = useState<ContentDocument | null>(null);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingDoc, setEditingDoc] = useState<ContentDocument | null>(null);
+
+  useEffect(() => {
+    const fetchDocs = async () => {
+      const result = await getContentDocuments();
+      if (result.error) {
+        toast.error('Failed to load content documents');
+      } else {
+        setDocuments(result.documents || []);
+      }
+    };
+    fetchDocs();
+  }, []);
 
   const filteredDocuments = useMemo(() => {
     return documents.filter(doc => {
@@ -34,18 +46,25 @@ export default function RepositoryPage() {
       return matchesType && matchesSearch;
     });
   }, [documents, searchTerm, filterType]);
-  
-  // const handleSaveDoc = (doc: ContentDocument) => {
-  //   // Placeholder for save logic
-  //   console.log("Saving document:", doc);
-  //   setIsFormOpen(false);
-  //   setEditingDoc(null);
-  // };
+
+  const handleSaveDoc = (doc: ContentDocument) => {
+    toast.success('Document saved');
+    const existingIndex = documents.findIndex(d => d.id === doc.id);
+    if (existingIndex !== -1) {
+      const updated = [...documents];
+      updated[existingIndex] = doc;
+      setDocuments(updated);
+    } else {
+      setDocuments([doc, ...documents]);
+    }
+    setIsFormOpen(false);
+    setEditingDoc(null);
+  };
 
   return (
     <>
       <PageHeader title="Content Repository" description="Centralized place for lesson plans, reports, and other documents.">
-        <Button disabled={!user?.isAdmin} title={!user?.isAdmin ? "Admin rights required" : "Upload Document"}> {/* onClick={() => { setEditingDoc(null); setIsFormOpen(true); }} */}
+        <Button disabled={!user?.isAdmin} title={!user?.isAdmin ? "Admin rights required" : "Upload Document"} onClick={() => { setEditingDoc(null); setIsFormOpen(true); }}>
           <PlusCircle className="mr-2 h-4 w-4" /> Upload Document
         </Button>
       </PageHeader>
@@ -105,13 +124,19 @@ export default function RepositoryPage() {
                       ) : 'N/A'}
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button variant="ghost" size="icon" disabled={!doc.fileUrl} title="Download (disabled)">
+                      <Button variant="ghost" size="icon" onClick={() => {
+                        if (doc.fileUrl) {
+                          window.open(doc.fileUrl, '_blank');
+                        } else {
+                          toast.warning('File URL is missing');
+                        }
+                      }}>
                         <Download className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="icon" disabled title="Edit (disabled)"> {/* onClick={() => { setEditingDoc(doc); setIsFormOpen(true); }} */}
+                      <Button variant="ghost" size="icon" onClick={() => { setEditingDoc(doc); setIsFormOpen(true); }}>
                         <Edit className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="icon" disabled title="Delete (disabled)" className="text-destructive hover:text-destructive">
+                      <Button variant="ghost" size="icon" disabled title="Delete (not implemented)" className="text-destructive hover:text-destructive">
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </TableCell>
@@ -128,14 +153,13 @@ export default function RepositoryPage() {
           </Table>
         </CardContent>
       </Card>
-      {/* 
+
       <ContentDocDialog 
         isOpen={isFormOpen} 
         onOpenChange={setIsFormOpen} 
         document={editingDoc} 
         onSave={handleSaveDoc} 
-      /> 
-      */}
+      />
     </>
   );
 }
