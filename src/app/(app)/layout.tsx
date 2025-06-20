@@ -1,3 +1,4 @@
+
 // src/app/(app)/layout.tsx
 'use client';
 
@@ -7,7 +8,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { NAV_ITEMS } from '@/lib/constants';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetClose } from '@/components/ui/sheet';
 import { Menu, X, Settings, Bell, ChevronsLeft, ChevronsRight, LogOut, Loader2 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import Image from 'next/image';
@@ -157,14 +158,18 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
               </Button>
             </SheetTrigger>
             <SheetContent side="left" className="flex flex-col p-0 w-64">
-              <div className="flex h-16 items-center border-b px-6">
-                <Link href="/dashboard" className="flex items-center gap-2 font-semibold font-headline text-primary">
-                  <Image src="/eotis-hub-icon.png" alt="EOTIS Hub Logo Icon" width={32} height={31} className="flex-shrink-0" priority />
-                  <Image src="/eotis-hub-title.png" alt="EOTIS Hub Title" width={100} height={24} className="flex-shrink-0 h-6" />
-                </Link>
-                <Button variant="ghost" size="icon" onClick={() => setIsMobileSidebarOpen(false)} className="ml-auto">
-                  <X className="h-6 w-6" />
-                </Button>
+              <div className="flex h-16 items-center justify-between border-b px-6">
+                <SheetTitle asChild>
+                  <Link href="/dashboard" onClick={handleMobileLinkClick} className="flex items-center gap-2 font-semibold font-headline text-primary">
+                    <Image src="/eotis-hub-icon.png" alt="EOTIS Hub Logo Icon" width={32} height={31} className="flex-shrink-0" priority />
+                    <Image src="/eotis-hub-title.png" alt="EOTIS Hub Title" width={100} height={24} className="flex-shrink-0 h-6" />
+                  </Link>
+                </SheetTitle>
+                <SheetClose asChild>
+                  <Button variant="ghost" size="icon" className="ml-auto">
+                    <X className="h-6 w-6" />
+                  </Button>
+                </SheetClose>
               </div>
               <ScrollArea className="flex-1 py-4">
                 <SidebarNavigation 
@@ -175,7 +180,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
               </ScrollArea>
               <div className="mt-auto p-4 border-t">
                 <Button variant="ghost" asChild className="w-full justify-start gap-2 h-10">
-                  <Link href="/profile?tab=appearance">
+                  <Link href="/profile?tab=appearance" onClick={handleMobileLinkClick}>
                     <Settings className="h-5 w-5 flex-shrink-0" />
                     <span>Settings</span>
                   </Link>
