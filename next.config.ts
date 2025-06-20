@@ -1,7 +1,8 @@
+
 import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  reactStrictMode: true, // Explicitly set, though usually default true
   typescript: {
     ignoreBuildErrors: true,
   },
