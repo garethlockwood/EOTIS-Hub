@@ -12,7 +12,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import Link from 'next/link';
 import { useAuth } from '@/hooks/use-auth';
 import { Loader2, UserPlus } from 'lucide-react';
-import Image from 'next/image';
+import Image from 'next/image'; // Added import for Image
 import { useToast } from "@/hooks/use-toast";
 
 const signupSchema = z.object({
@@ -44,8 +44,6 @@ export default function SignupPage() {
   const onSubmit: SubmitHandler<SignupFormValues> = async (data) => {
     try {
       await signup(data.name, data.email, data.password);
-      // The signup function in useAuth will handle redirect on success
-      // toast({ title: "Signup Successful", description: "Welcome! You are now logged in."}); // Handled by useAuth or page redirects
     } catch (error) {
       toast({
         variant: "destructive",
@@ -60,7 +58,7 @@ export default function SignupPage() {
       <Card className="w-full max-w-md shadow-2xl">
         <CardHeader className="text-center">
           <div className="mx-auto mb-4">
-            <Image src="/eotis-hub-logo.png" alt="EOTIS Hub Logo" width={80} height={77} />
+            <Image src="/eotis-hub-logo.png" alt="EOTIS Hub Logo" width={80} height={77} priority />
           </div>
           <CardTitle className="text-3xl font-headline">Create Account</CardTitle>
           <CardDescription>Join EOTIS Hub today.</CardDescription>
@@ -137,5 +135,3 @@ export default function SignupPage() {
     </div>
   );
 }
-
-    

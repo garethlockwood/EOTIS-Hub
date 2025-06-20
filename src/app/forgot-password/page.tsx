@@ -11,7 +11,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import Link from 'next/link';
 import { Loader2, Mail } from 'lucide-react';
-import Image from 'next/image';
+import Image from 'next/image'; // Added import for Image
 import { useAuth } from '@/hooks/use-auth';
 
 const forgotPasswordSchema = z.object({
@@ -34,10 +34,9 @@ export default function ForgotPasswordPage() {
   const onSubmit: SubmitHandler<ForgotPasswordFormValues> = async (data) => {
     try {
       await sendPasswordResetEmail(data.email);
-      setSubmitted(true); // Toast is handled by AuthContext
+      setSubmitted(true);
     } catch (error) {
-      // Error is handled by AuthContext, but we might want to prevent setting submitted if it fails.
-      // For now, AuthContext's toast is the primary feedback.
+      // Error is handled by AuthContext
     }
   };
 
@@ -46,7 +45,7 @@ export default function ForgotPasswordPage() {
       <Card className="w-full max-w-md shadow-2xl">
         <CardHeader className="text-center">
            <div className="mx-auto mb-4">
-             <Image src="/eotis-hub-logo.png" alt="EOTIS Hub Logo" width={80} height={77} />
+             <Image src="/eotis-hub-logo.png" alt="EOTIS Hub Logo" width={80} height={77} priority />
            </div>
           <CardTitle className="text-3xl font-headline">Forgot Password?</CardTitle>
           <CardDescription>
@@ -89,5 +88,3 @@ export default function ForgotPasswordPage() {
     </div>
   );
 }
-
-    

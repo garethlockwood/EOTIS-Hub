@@ -7,17 +7,16 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-// Label is not directly used here, but FormLabel is.
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/use-auth';
 import { Loader2, LogIn } from 'lucide-react';
-import Image from 'next/image';
+import Image from 'next/image'; // Added import for Image
 
 const loginSchema = z.object({
   email: z.string().email({ message: 'Invalid email address.' }),
-  password: z.string().min(1, { message: 'Password cannot be empty.' }), // Firebase auth min is 6, but form might allow less before sending
+  password: z.string().min(1, { message: 'Password cannot be empty.' }),
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
@@ -35,7 +34,6 @@ export default function LoginPage() {
 
   const onSubmit: SubmitHandler<LoginFormValues> = async (data) => {
     await login(data.email, data.password);
-    // Toast for success/failure and redirect logic is handled within the login function in AuthContext / onAuthStateChanged
   };
 
   return (
@@ -43,7 +41,7 @@ export default function LoginPage() {
       <Card className="w-full max-w-md shadow-2xl">
         <CardHeader className="text-center">
           <div className="mx-auto mb-4">
-            <Image src="/eotis-hub-logo.png" alt="EOTIS Hub Logo" width={80} height={77} />
+            <Image src="/eotis-hub-logo.png" alt="EOTIS Hub Logo" width={80} height={77} priority />
           </div>
           <CardTitle className="text-3xl font-headline">Welcome Back</CardTitle>
           <CardDescription>Sign in to your EOTIS Hub account.</CardDescription>
@@ -101,5 +99,3 @@ export default function LoginPage() {
     </div>
   );
 }
-
-    

@@ -10,7 +10,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Menu, X, Settings, Bell, ChevronsLeft, ChevronsRight, LogOut, Loader2 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import Image from 'next/image'; // Added for the new logo
+import Image from 'next/image';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,7 +20,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from '@/lib/utils';
-// AuthProvider is removed from here, AuthContext will still be used by useAuth
 import { useAuth } from '@/hooks/use-auth'; 
 
 interface SidebarNavProps {
@@ -81,22 +80,18 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
   
   const handleLogout = async () => {
     await logout();
-    // router.push('/login'); // useAuth handles redirect
   };
 
   if (!isMounted || authIsLoading) { 
     return <div className="flex h-screen w-screen items-center justify-center"><Loader2 className="h-12 w-12 animate-pulse text-primary" /></div>;
   }
   
-  if (!user && !pathname.startsWith('/login')) {
-      // This check is mostly for completeness, middleware and AuthContext useEffect should handle it
+  if (!user && !pathname.startsWith('/login') && !pathname.startsWith('/signup') && !pathname.startsWith('/forgot-password') && !pathname.startsWith('/reset-password')) {
       return <div className="flex h-screen w-screen items-center justify-center"><Loader2 className="h-12 w-12 animate-pulse text-primary" /></div>; 
   }
 
-
   const pageTitle = NAV_ITEMS.find(item => pathname.startsWith(item.href))?.title || 
                     (pathname.startsWith('/profile') ? 'My Profile' : 'EOTIS Hub');
-
 
   return (
     <div className="flex min-h-screen w-full bg-background">
@@ -112,7 +107,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
               "flex items-center gap-2 font-semibold font-headline text-primary",
               isDesktopSidebarCollapsed && "justify-center w-full"
           )}>
-            <Image src="/eotis-hub-logo.png" alt="EOTIS Hub Logo" width={32} height={31} className="flex-shrink-0" />
+            <Image src="/eotis-hub-logo.png" alt="EOTIS Hub Logo" width={32} height={31} className="flex-shrink-0" priority />
             {!isDesktopSidebarCollapsed && <span className="truncate text-lg">EOTIS Hub</span>}
           </Link>
         </div>
@@ -164,7 +159,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
             <SheetContent side="left" className="flex flex-col p-0 w-64">
               <div className="flex h-16 items-center border-b px-6">
                 <Link href="/dashboard" className="flex items-center gap-2 font-semibold font-headline text-primary">
-                  <Image src="/eotis-hub-logo.png" alt="EOTIS Hub Logo" width={32} height={31} className="flex-shrink-0" />
+                  <Image src="/eotis-hub-logo.png" alt="EOTIS Hub Logo" width={32} height={31} className="flex-shrink-0" priority />
                   <span className="text-lg">EOTIS Hub</span>
                 </Link>
                 <Button variant="ghost" size="icon" onClick={() => setIsMobileSidebarOpen(false)} className="ml-auto">
@@ -235,9 +230,6 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
   );
 }
 
-// AuthProvider is no longer wrapping AppLayoutContent here
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return <AppLayoutContent>{children}</AppLayoutContent>;
 }
-
-    

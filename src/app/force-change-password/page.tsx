@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Loader2, KeyRound } from 'lucide-react';
-import Image from 'next/image';
+import Image from 'next/image'; // Added import for Image
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
@@ -30,18 +30,6 @@ export default function ForceChangePasswordPage() {
   const router = useRouter();
   const { toast } = useToast();
 
-  // This useEffect is handled by the AuthContext general redirect logic now
-  // useEffect(() => {
-  //   if (!authIsLoading && (!user || !user.mustChangePassword)) {
-  //     if (user && !user.mustChangePassword) {
-  //       toast({ title: "Not Required", description: "Password change is not required for your account."});
-  //       router.push('/dashboard');
-  //     } else if (!user) {
-  //        router.push('/login');
-  //     }
-  //   }
-  // }, [user, authIsLoading, router, toast]);
-
   const form = useForm<ForceChangePasswordFormValues>({
     resolver: zodResolver(forceChangePasswordSchema),
     defaultValues: {
@@ -53,16 +41,12 @@ export default function ForceChangePasswordPage() {
   const onSubmit: SubmitHandler<ForceChangePasswordFormValues> = async (data) => {
     try {
       await forceChangePassword(data.newPassword);
-      // Redirect is handled by forceChangePassword on success within AuthContext
     } catch (error) {
-      // Toast is handled by forceChangePassword or caught here if it throws
-      // Toast already in AuthContext for errors from forceChangePassword
+      // Error toast is handled by AuthContext
     }
   };
   
   if (authIsLoading || !user || !user.mustChangePassword) {
-    // If loading, or no user, or user doesn't need to change password, show loader.
-    // AuthContext useEffect will handle redirection if necessary.
     return (
       <div className="flex min-h-screen items-center justify-center bg-background p-4">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -75,7 +59,7 @@ export default function ForceChangePasswordPage() {
       <Card className="w-full max-w-md shadow-2xl">
         <CardHeader className="text-center">
           <div className="mx-auto mb-4">
-            <Image src="/eotis-hub-logo.png" alt="EOTIS Hub Logo" width={80} height={77} />
+            <Image src="/eotis-hub-logo.png" alt="EOTIS Hub Logo" width={80} height={77} priority />
           </div>
           <CardTitle className="text-3xl font-headline">Update Your Password</CardTitle>
           <CardDescription>
@@ -127,5 +111,3 @@ export default function ForceChangePasswordPage() {
     </div>
   );
 }
-
-    

@@ -12,7 +12,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import Link from 'next/link';
 import { Loader2, KeyRound } from 'lucide-react';
-import Image from 'next/image';
+import Image from 'next/image'; // Added import for Image
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 
@@ -31,13 +31,12 @@ function ResetPasswordContent() {
   const { confirmPasswordReset, isLoading: authIsLoading } = useAuth();
   const { toast } = useToast();
 
-  const [oobCode, setOobCode] = useState<string | null>(null); // Firebase uses 'oobCode' for this
+  const [oobCode, setOobCode] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
-
   useEffect(() => {
-    const code = searchParams.get('oobCode'); // Firebase usually passes it as 'oobCode'
+    const code = searchParams.get('oobCode');
     if (code) {
       setOobCode(code);
     } else {
@@ -61,12 +60,10 @@ function ResetPasswordContent() {
     }
     setIsSubmitting(true);
     try {
-      await confirmPasswordReset(oobCode, data.password); // Pass oobCode as token
-      // Toast and redirect is handled by AuthContext for success
+      await confirmPasswordReset(oobCode, data.password);
       setSubmitted(true);
     } catch (error) {
-      // Error toast is handled by AuthContext or caught here if it throws
-      // Error toast already in AuthContext
+      // Error toast is handled by AuthContext
     }
     setIsSubmitting(false);
   };
@@ -77,7 +74,7 @@ function ResetPasswordContent() {
     <Card className="w-full max-w-md shadow-2xl">
       <CardHeader className="text-center">
         <div className="mx-auto mb-4">
-          <Image src="/eotis-hub-logo.png" alt="EOTIS Hub Logo" width={80} height={77} />
+          <Image src="/eotis-hub-logo.png" alt="EOTIS Hub Logo" width={80} height={77} priority />
         </div>
         <CardTitle className="text-3xl font-headline">Reset Your Password</CardTitle>
         <CardDescription>
@@ -144,5 +141,3 @@ export default function ResetPasswordPage() {
     </Suspense>
   );
 }
-
-    
