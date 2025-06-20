@@ -8,8 +8,9 @@ import { NAV_ITEMS } from '@/lib/constants';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { Menu, X, Settings, Bell, ChevronsLeft, ChevronsRight, LogOut, UserCircle2 } from 'lucide-react';
+import { Menu, X, Settings, Bell, ChevronsLeft, ChevronsRight, LogOut, Loader2 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import Image from 'next/image'; // Added for the new logo
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -84,12 +85,12 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
   };
 
   if (!isMounted || authIsLoading) { 
-    return <div className="flex h-screen w-screen items-center justify-center"><UserCircle2 className="h-12 w-12 animate-pulse text-primary" /></div>;
+    return <div className="flex h-screen w-screen items-center justify-center"><Loader2 className="h-12 w-12 animate-pulse text-primary" /></div>;
   }
   
   if (!user && !pathname.startsWith('/login')) {
       // This check is mostly for completeness, middleware and AuthContext useEffect should handle it
-      return <div className="flex h-screen w-screen items-center justify-center"><UserCircle2 className="h-12 w-12 animate-pulse text-primary" /></div>; 
+      return <div className="flex h-screen w-screen items-center justify-center"><Loader2 className="h-12 w-12 animate-pulse text-primary" /></div>; 
   }
 
 
@@ -111,8 +112,8 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
               "flex items-center gap-2 font-semibold font-headline text-primary",
               isDesktopSidebarCollapsed && "justify-center w-full"
           )}>
-            <UserCircle2 className="h-7 w-7 flex-shrink-0" />
-            {!isDesktopSidebarCollapsed && <span className="truncate">EOTIS Hub</span>}
+            <Image src="/eotis-hub-logo.png" alt="EOTIS Hub Logo" width={32} height={31} className="flex-shrink-0" />
+            {!isDesktopSidebarCollapsed && <span className="truncate text-lg">EOTIS Hub</span>}
           </Link>
         </div>
         <ScrollArea className="flex-1 py-4">
@@ -163,8 +164,8 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
             <SheetContent side="left" className="flex flex-col p-0 w-64">
               <div className="flex h-16 items-center border-b px-6">
                 <Link href="/dashboard" className="flex items-center gap-2 font-semibold font-headline text-primary">
-                  <UserCircle2 className="h-7 w-7 flex-shrink-0" />
-                  <span>EOTIS Hub</span>
+                  <Image src="/eotis-hub-logo.png" alt="EOTIS Hub Logo" width={32} height={31} className="flex-shrink-0" />
+                  <span className="text-lg">EOTIS Hub</span>
                 </Link>
                 <Button variant="ghost" size="icon" onClick={() => setIsMobileSidebarOpen(false)} className="ml-auto">
                   <X className="h-6 w-6" />
@@ -201,8 +202,8 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="rounded-full">
                   <Avatar className="h-8 w-8">
-                    <AvatarImage src={user?.avatarUrl || "https://placehold.co/40x40.png?text=U"} alt={user?.name || "User"} data-ai-hint="user avatar" />
-                    <AvatarFallback>{user?.name ? user.name.substring(0,2).toUpperCase() : "U"}</AvatarFallback>
+                    <AvatarImage src={user?.avatarUrl || undefined} alt={user?.name || "User"} />
+                    <AvatarFallback>{user?.name ? user.name.substring(0,2).toUpperCase() : (user?.email ? user.email.substring(0,2).toUpperCase() : "U")}</AvatarFallback>
                   </Avatar>
                   <span className="sr-only">User menu</span>
                 </Button>
@@ -238,3 +239,5 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return <AppLayoutContent>{children}</AppLayoutContent>;
 }
+
+    

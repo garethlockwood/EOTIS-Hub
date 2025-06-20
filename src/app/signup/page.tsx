@@ -60,7 +60,7 @@ export default function SignupPage() {
       <Card className="w-full max-w-md shadow-2xl">
         <CardHeader className="text-center">
           <div className="mx-auto mb-4">
-            <Image src="https://placehold.co/80x80.png?text=LOGO" alt="EOTIS Hub Logo" width={80} height={80} data-ai-hint="logo placeholder"/>
+            <Image src="/eotis-hub-logo.png" alt="EOTIS Hub Logo" width={80} height={77} />
           </div>
           <CardTitle className="text-3xl font-headline">Create Account</CardTitle>
           <CardDescription>Join EOTIS Hub today.</CardDescription>
@@ -137,3 +137,5 @@ export default function SignupPage() {
     </div>
   );
 }
+
+    
