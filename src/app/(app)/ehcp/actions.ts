@@ -1,11 +1,13 @@
 
 'use server';
 
+import { dbAdmin } from '@/lib/firebase-admin';
 import { auth, db, storage } from '@/lib/firebase'; // Ensure auth is imported
 import { collection, addDoc, getDocs, deleteDoc, doc, updateDoc, query, orderBy, Timestamp, getDoc, where, setDoc } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'; // Added storage imports
 import type { EHCPDocument } from '@/types';
 import { revalidatePath } from 'next/cache';
+
 
 // Helper to check admin status
 async function isAdmin(uid: string | undefined): Promise<boolean> {
@@ -144,11 +146,11 @@ export async function addEhcpDocument(formData: FormData, actingUserId: string):
   const newDocFirestoreRef = doc(collection(db, 'ehcpDocuments')); 
   const documentId = newDocFirestoreRef.id;
   const storagePath = `ehcp_documents/${documentId}/${file.name}`;
-  const storageRef = ref(storage, storagePath);
+  const storageRefInstance = ref(storage, storagePath); // Renamed to avoid conflict with storage import
 
   try {
-    await uploadBytes(storageRef, file);
-    const downloadURL = await getDownloadURL(storageRef);
+    await uploadBytes(storageRefInstance, file); // Use renamed variable
+    const downloadURL = await getDownloadURL(storageRefInstance); // Use renamed variable
 
     const newDocData = {
       name,
