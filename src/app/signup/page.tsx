@@ -12,7 +12,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import Link from 'next/link';
 import { useAuth } from '@/hooks/use-auth';
 import { Loader2, UserPlus } from 'lucide-react';
-import Image from 'next/image'; // Added import for Image
+import Image from 'next/image';
 import { useToast } from "@/hooks/use-toast";
 
 const signupSchema = z.object({
@@ -58,7 +58,7 @@ export default function SignupPage() {
       <Card className="w-full max-w-md shadow-2xl">
         <CardHeader className="text-center">
           <div className="mx-auto mb-4">
-            <Image src="/eotis-hub-logo.png" alt="EOTIS Hub Logo" width={80} height={77} priority />
+            <Image src="/eotis-hub-logo.png" alt="EOTIS Hub Logo" width={120} height={115} priority />
           </div>
           <CardTitle className="text-3xl font-headline">Create Account</CardTitle>
           <CardDescription>Join EOTIS Hub today.</CardDescription>

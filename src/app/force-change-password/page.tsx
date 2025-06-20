@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Loader2, KeyRound } from 'lucide-react';
-import Image from 'next/image'; // Added import for Image
+import Image from 'next/image';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
@@ -59,7 +59,7 @@ export default function ForceChangePasswordPage() {
       <Card className="w-full max-w-md shadow-2xl">
         <CardHeader className="text-center">
           <div className="mx-auto mb-4">
-            <Image src="/eotis-hub-logo.png" alt="EOTIS Hub Logo" width={80} height={77} priority />
+            <Image src="/eotis-hub-logo.png" alt="EOTIS Hub Logo" width={120} height={115} priority />
           </div>
           <CardTitle className="text-3xl font-headline">Update Your Password</CardTitle>
           <CardDescription>

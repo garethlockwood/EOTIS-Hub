@@ -12,7 +12,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import Link from 'next/link';
 import { useAuth } from '@/hooks/use-auth';
 import { Loader2, LogIn } from 'lucide-react';
-import Image from 'next/image'; // Added import for Image
+import Image from 'next/image';
 
 const loginSchema = z.object({
   email: z.string().email({ message: 'Invalid email address.' }),
@@ -41,7 +41,7 @@ export default function LoginPage() {
       <Card className="w-full max-w-md shadow-2xl">
         <CardHeader className="text-center">
           <div className="mx-auto mb-4">
-            <Image src="/eotis-hub-logo.png" alt="EOTIS Hub Logo" width={80} height={77} priority />
+            <Image src="/eotis-hub-logo.png" alt="EOTIS Hub Logo" width={120} height={115} priority />
           </div>
           <CardTitle className="text-3xl font-headline">Welcome Back</CardTitle>
           <CardDescription>Sign in to your EOTIS Hub account.</CardDescription>
