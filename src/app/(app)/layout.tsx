@@ -107,7 +107,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
               "flex items-center gap-2 font-semibold font-headline text-primary",
               isDesktopSidebarCollapsed && "justify-center w-full"
           )}>
-            <Image src="/eotis-hub-logo.png" alt="EOTIS Hub Logo" width={32} height={31} className="flex-shrink-0" priority />
+            <Image src="/eotis-hub-icon.png" alt="EOTIS Hub Logo" width={32} height={31} className="flex-shrink-0" priority />
             {!isDesktopSidebarCollapsed && <span className="truncate text-lg">EOTIS Hub</span>}
           </Link>
         </div>
@@ -159,7 +159,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
             <SheetContent side="left" className="flex flex-col p-0 w-64">
               <div className="flex h-16 items-center border-b px-6">
                 <Link href="/dashboard" className="flex items-center gap-2 font-semibold font-headline text-primary">
-                  <Image src="/eotis-hub-logo.png" alt="EOTIS Hub Logo" width={32} height={31} className="flex-shrink-0" priority />
+                  <Image src="/eotis-hub-icon.png" alt="EOTIS Hub Logo" width={32} height={31} className="flex-shrink-0" priority />
                   <span className="text-lg">EOTIS Hub</span>
                 </Link>
                 <Button variant="ghost" size="icon" onClick={() => setIsMobileSidebarOpen(false)} className="ml-auto">
@@ -233,3 +233,4 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return <AppLayoutContent>{children}</AppLayoutContent>;
 }
+
