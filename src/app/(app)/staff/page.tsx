@@ -40,8 +40,7 @@ export default function StaffDirectoryPage() {
     getStaffForStudent(selectedStudent.id)
       .then(result => {
         if (result.staff) {
-          const sortedStaff = result.staff.sort((a, b) => a.name.localeCompare(b.name));
-          setStaffList(sortedStaff);
+          setStaffList(result.staff);
           setError(null);
         } else {
           setStaffList([]);

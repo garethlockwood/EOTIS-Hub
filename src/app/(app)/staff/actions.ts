@@ -29,12 +29,10 @@ export async function getStaffForStudent(
   }
 
   try {
-    // Note: .orderBy('name', 'asc') was removed to prevent an error on fresh databases.
-    // Sorting is handled client-side. For large datasets, create the composite index
-    // in Firestore on (studentIds ASC, name ASC) and re-add .orderBy('name', 'asc') here.
     const snapshot = await dbAdmin
       .collection('staff')
       .where('studentIds', 'array-contains', studentId)
+      .orderBy('name', 'asc') // Now using the composite index for server-side sorting
       .get();
     
     if (snapshot.empty) {
