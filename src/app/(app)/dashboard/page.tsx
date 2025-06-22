@@ -10,7 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PLACEHOLDER_LESSONS, PLACEHOLDER_INVOICES, PLACEHOLDER_MEETINGS, PLACEHOLDER_TODOS } from '@/lib/constants';
-import type { UpcomingLesson, UnpaidInvoice, ScheduledMeeting, TodoItem } from '@/types';
+import type { UpcomingLesson, UnpaidInvoice, ScheduledMeeting, TodoItem, Student } from '@/types';
 import { CalendarClock, FileText, Users2, ListChecks, PlusCircle, UserPlus } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/use-auth';
@@ -19,7 +19,7 @@ import { AddStudentDialog } from '@/components/students/add-student-dialog';
 
 export default function DashboardPage() {
   const { user } = useAuth();
-  const { refreshAndSelectStudent } = useStudent();
+  const { addAndSelectStudent } = useStudent();
   const [todos, setTodos] = useState<TodoItem[]>(PLACEHOLDER_TODOS);
   const [newTodo, setNewTodo] = useState('');
   const [isAddStudentOpen, setIsAddStudentOpen] = useState(false);
@@ -42,8 +42,8 @@ export default function DashboardPage() {
     setNewTodo('');
   };
 
-  const handleStudentAdded = (newStudentId: string) => {
-    refreshAndSelectStudent(newStudentId);
+  const handleStudentAdded = (newStudent: Student) => {
+    addAndSelectStudent(newStudent);
   };
 
   const upcomingLessons: UpcomingLesson[] = PLACEHOLDER_LESSONS;

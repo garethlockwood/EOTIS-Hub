@@ -64,7 +64,7 @@ export async function getManagedStudents(
 export async function createStudent(
   adminId: string,
   studentData: { name: string; email: string; }
-): Promise<{ success?: boolean; error?: string; studentId?: string }> {
+): Promise<{ success?: boolean; error?: string; student?: Student }> {
   if (!(await isAdmin(adminId))) {
     return { error: 'Permission denied. Only admins can create students.' };
   }
@@ -75,23 +75,31 @@ export async function createStudent(
   }
   
   try {
-    // Generate a new document reference in the 'students' collection
     const newStudentRef = dbAdmin.collection('students').doc();
     
-    // Create the student document in the 'students' collection
-    await newStudentRef.set({
+    const newStudentData = {
       name,
       email,
       createdAt: Timestamp.now(),
-      avatarURL: '', // Default empty avatar
-      managedBy: adminId, // Link the student to the creating admin
-    });
+      avatarURL: '',
+      managedBy: adminId,
+    };
     
-    // Invalidate caches to show the new student in lists
+    await newStudentRef.set(newStudentData);
+    
     revalidatePath('/dashboard');
     revalidatePath('/ehcp');
     
-    return { success: true, studentId: newStudentRef.id };
+    const createdStudent: Student = {
+        id: newStudentRef.id,
+        name: newStudentData.name,
+        email: newStudentData.email,
+        managedBy: newStudentData.managedBy,
+        avatarUrl: newStudentData.avatarURL,
+        createdAt: newStudentData.createdAt.toDate().toISOString()
+    };
+
+    return { success: true, student: createdStudent };
   } catch (error: any) {
     console.error('[createStudent] Error:', error);
     let errorMessage = 'Failed to create student record.';

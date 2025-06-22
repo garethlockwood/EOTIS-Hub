@@ -27,6 +27,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { createStudent } from '@/app/(app)/students/actions';
 import { Loader2, UserPlus } from 'lucide-react';
+import type { Student } from '@/types';
 
 // Schema no longer includes a password
 const addStudentSchema = z.object({
@@ -39,7 +40,7 @@ type AddStudentFormValues = z.infer<typeof addStudentSchema>;
 interface AddStudentDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
-  onStudentAdded: (newStudentId: string) => void;
+  onStudentAdded: (newStudent: Student) => void;
 }
 
 export function AddStudentDialog({ isOpen, onOpenChange, onStudentAdded }: AddStudentDialogProps) {
@@ -72,12 +73,12 @@ export function AddStudentDialog({ isOpen, onOpenChange, onStudentAdded }: AddSt
     // Call the simplified createStudent action without a password
     const result = await createStudent(adminUser.id, data);
 
-    if (result.success && result.studentId) {
+    if (result.success && result.student) {
       toast({
         title: 'Student Record Created',
         description: `A record for ${data.name} has been created.`,
       });
-      onStudentAdded(result.studentId);
+      onStudentAdded(result.student);
       handleOpenChange(false);
     } else {
       toast({

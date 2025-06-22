@@ -13,7 +13,7 @@ interface StudentContextType {
   isLoading: boolean;
   error?: string | null;
   refreshStudents: () => void;
-  refreshAndSelectStudent: (studentId: string) => void;
+  addAndSelectStudent: (student: Student) => void;
 }
 
 export const StudentContext = createContext<StudentContextType | undefined>(undefined);
@@ -30,23 +30,29 @@ export const StudentProvider = ({ children }: { children: React.ReactNode }) => 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refetchTrigger, setRefetchTrigger] = useState(0);
-  const [studentIdToSelectAfterFetch, setStudentIdToSelectAfterFetch] = useState<string | null>(null);
 
   const refreshStudents = useCallback(() => {
     setRefetchTrigger(prev => prev + 1);
   }, []);
 
-  const refreshAndSelectStudent = useCallback((studentId: string) => {
-    setStudentIdToSelectAfterFetch(studentId);
-    refreshStudents();
-  }, [refreshStudents]);
+  const addAndSelectStudent = (newStudent: Student) => {
+    setStudents(prevStudents => 
+      [...prevStudents, newStudent].sort((a, b) => a.name.localeCompare(b.name))
+    );
+    setSelectedStudentId(newStudent.id);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('selectedStudentId', newStudent.id);
+    }
+  };
 
   useEffect(() => {
     if (!adminUser?.isAdmin) {
       if (!authIsLoading) {
         setStudents([]);
         setSelectedStudentId(null);
-        localStorage.removeItem('selectedStudentId');
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('selectedStudentId');
+        }
         setIsLoading(false);
       }
       return;
@@ -57,31 +63,18 @@ export const StudentProvider = ({ children }: { children: React.ReactNode }) => 
       .then(result => {
         if (result.students) {
           setStudents(result.students);
-          setError(null); // Clear previous errors on success
+          setError(null);
           
-          let idToSet = selectedStudentId;
-
-          // If a specific student was requested for selection, prioritize that.
-          if (studentIdToSelectAfterFetch && result.students.some(s => s.id === studentIdToSelectAfterFetch)) {
-            idToSet = studentIdToSelectAfterFetch;
-            setStudentIdToSelectAfterFetch(null); // Reset after use
-          } else {
-            // Otherwise, validate the current selection or pick the first student.
-            const currentIsValid = result.students.some(s => s.id === selectedStudentId);
-            if (!currentIsValid && result.students.length > 0) {
-              idToSet = result.students[0].id;
-            } else if (!currentIsValid && result.students.length === 0) {
-              idToSet = null;
-            }
-          }
-
-          // Update state and localStorage only if there's a change.
-          if (idToSet !== selectedStudentId) {
-            setSelectedStudentId(idToSet);
-            if (idToSet) {
-              localStorage.setItem('selectedStudentId', idToSet);
-            } else {
-              localStorage.removeItem('selectedStudentId');
+          const currentIsValid = result.students.some(s => s.id === selectedStudentId);
+          if (!currentIsValid) {
+            const newId = result.students.length > 0 ? result.students[0].id : null;
+            setSelectedStudentId(newId);
+            if (typeof window !== 'undefined') {
+              if (newId) {
+                localStorage.setItem('selectedStudentId', newId);
+              } else {
+                localStorage.removeItem('selectedStudentId');
+              }
             }
           }
         } else if (result.error) {
@@ -95,15 +88,17 @@ export const StudentProvider = ({ children }: { children: React.ReactNode }) => 
       .finally(() => {
         setIsLoading(false);
       });
-  }, [adminUser, authIsLoading, refetchTrigger, selectedStudentId, studentIdToSelectAfterFetch]);
+  }, [adminUser, authIsLoading, refetchTrigger, selectedStudentId]);
 
   const handleSetSelectedStudent = useCallback((student: Student | null) => {
     const newId = student ? student.id : null;
     setSelectedStudentId(newId);
-    if (newId) {
-      localStorage.setItem('selectedStudentId', newId);
-    } else {
-      localStorage.removeItem('selectedStudentId');
+    if (typeof window !== 'undefined') {
+      if (newId) {
+        localStorage.setItem('selectedStudentId', newId);
+      } else {
+        localStorage.removeItem('selectedStudentId');
+      }
     }
   }, []);
 
@@ -118,7 +113,7 @@ export const StudentProvider = ({ children }: { children: React.ReactNode }) => 
     isLoading: authIsLoading || isLoading,
     error,
     refreshStudents,
-    refreshAndSelectStudent,
+    addAndSelectStudent,
   };
 
   return <StudentContext.Provider value={value}>{children}</StudentContext.Provider>;
