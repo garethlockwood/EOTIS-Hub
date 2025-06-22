@@ -29,10 +29,10 @@ export async function getStaffForStudent(
   }
 
   try {
+    // Temporarily removed .orderBy to avoid index issues. Sorting is handled client-side.
     const snapshot = await dbAdmin
       .collection('staff')
       .where('studentIds', 'array-contains', studentId)
-      .orderBy('name', 'asc') // Now using the composite index for server-side sorting
       .get();
     
     if (snapshot.empty) {
