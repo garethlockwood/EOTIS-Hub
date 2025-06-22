@@ -32,7 +32,7 @@ export async function getManagedStudents(
   try {
     const snapshot = await dbAdmin
       .collection('users')
-      .where('isAdmin', '==', false)
+      .where('managedBy', '==', adminId) // Query by the admin who manages the student
       .orderBy('name', 'asc')
       .get();
 
@@ -49,6 +49,7 @@ export async function getManagedStudents(
         name: data.name || 'Unnamed Student',
         avatarUrl: data.avatarURL,
         isAdmin: data.isAdmin || false,
+        managedBy: data.managedBy,
       } as User;
     });
 
@@ -85,6 +86,7 @@ export async function createStudent(
       isAdmin: false, // Students are never admins
       createdAt: Timestamp.now(),
       avatarURL: '', // Default empty avatar
+      managedBy: adminId, // Link the student to the creating admin
     });
     
     // Invalidate caches to show the new student in lists

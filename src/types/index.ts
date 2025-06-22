@@ -17,6 +17,7 @@ export interface User {
   isMfaEnabled?: boolean; // Custom, from Firestore
   mustChangePassword?: boolean; // Custom, from Firestore
   isAdmin?: boolean; // Custom, from Firestore
+  managedBy?: string; // UID of the admin managing this user
 }
 
 export interface TodoItem {
@@ -120,4 +121,3 @@ export interface EHCPDocument {
   originalFileName: string;
   associatedUserId: string; // UID of the user (e.g., student) this document belongs to
 }
-
