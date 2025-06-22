@@ -62,13 +62,14 @@ export const StudentProvider = ({ children }: { children: React.ReactNode }) => 
     getManagedStudents(adminUser.id)
       .then(result => {
         if (result.students) {
-          setStudents(result.students);
+          const sortedStudents = result.students.sort((a, b) => a.name.localeCompare(b.name));
+          setStudents(sortedStudents);
           setError(null);
           
-          const currentIdIsValid = result.students.some(s => s.id === selectedStudentId);
+          const currentIdIsValid = sortedStudents.some(s => s.id === selectedStudentId);
 
           if (!currentIdIsValid) {
-            const newId = result.students.length > 0 ? result.students[0].id : null;
+            const newId = sortedStudents.length > 0 ? sortedStudents[0].id : null;
             setSelectedStudentId(newId);
             if (typeof window !== 'undefined') {
               if (newId) {
@@ -104,18 +105,6 @@ export const StudentProvider = ({ children }: { children: React.ReactNode }) => 
   }, []);
 
   const selectedStudent = useMemo(() => {
-    // When the list of students updates, ensure the selected ID is still valid.
-    if (students.length > 0 && selectedStudentId && !students.some(s => s.id === selectedStudentId)) {
-        // The previously selected student is not in the list, so default to the first one.
-        const newDefaultId = students[0].id;
-        if (typeof window !== 'undefined') {
-            localStorage.setItem('selectedStudentId', newDefaultId);
-        }
-        // This state update will be queued and might not reflect immediately, 
-        // so we return students[0] directly for this render pass.
-        // A more complex setup might use another useEffect to handle this.
-        return students[0];
-    }
     return students.find(s => s.id === selectedStudentId) || (students.length > 0 ? students[0] : null);
   }, [students, selectedStudentId]);
 

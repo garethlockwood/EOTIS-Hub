@@ -32,7 +32,7 @@ export async function getManagedStudents(
     const snapshot = await dbAdmin
       .collection('students') // Query the 'students' collection
       .where('managedBy', '==', adminId)
-      .orderBy('name', 'asc')
+      // .orderBy('name', 'asc') // Removed to prevent FAILED_PRECONDITION error. Sorting is now done on the client.
       .get();
 
     if (snapshot.empty) {
