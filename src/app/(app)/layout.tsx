@@ -8,7 +8,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { NAV_ITEMS } from '@/lib/constants';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetClose } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetTitle, SheetClose } from '@/components/ui/sheet';
 import { Menu, X, Settings, Bell, ChevronsLeft, ChevronsRight, LogOut, Loader2 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import Image from 'next/image';
@@ -22,6 +22,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/use-auth'; 
+import { StudentProvider } from '@/contexts/student-context'; // Import StudentProvider
+import { StudentSelector } from '@/components/common/student-selector'; // Import StudentSelector
 
 interface SidebarNavProps {
   isCollapsed: boolean;
@@ -194,6 +196,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="ml-auto flex items-center gap-4">
+             {user?.isAdmin && <StudentSelector />}
             <Button variant="ghost" size="icon" className="rounded-full">
               <Bell className="h-5 w-5" />
               <span className="sr-only">Notifications</span>
@@ -236,6 +239,10 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
 }
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  return <AppLayoutContent>{children}</AppLayoutContent>;
+  return (
+    <StudentProvider>
+      <AppLayoutContent>{children}</AppLayoutContent>
+    </StudentProvider>
+  );
 }
 

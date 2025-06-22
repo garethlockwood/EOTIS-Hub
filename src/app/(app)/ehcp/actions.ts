@@ -23,16 +23,16 @@ async function isAdmin(uid: string | undefined): Promise<boolean> {
 }
 
 export async function getEhcpDocuments(
-  actingUserId: string
+  studentId: string
 ): Promise<{ documents?: EHCPDocument[]; error?: string }> {
-  if (!actingUserId || typeof actingUserId !== 'string' || actingUserId.trim() === '') {
+  if (!studentId || typeof studentId !== 'string' || studentId.trim() === '') {
     return { error: 'Invalid user identifier.' };
   }
 
   try {
     const snapshot = await dbAdmin
       .collection('ehcpDocuments')
-      .where('associatedUserId', '==', actingUserId)
+      .where('associatedUserId', '==', studentId)
       .orderBy('uploadDate', 'desc')
       .get();
 
@@ -175,7 +175,7 @@ export async function updateEhcpDocumentStatus(
 ): Promise<{ success?: boolean; error?: string }> {
   if (!actingAdminUserId) return { error: 'Admin user not authenticated for action.' };
 
-  const isAdmin = await (async () => {
+  const isAdminUser = await (async () => {
     try {
       const userDoc = await dbAdmin.collection('users').doc(actingAdminUserId).get();
       return userDoc.exists && userDoc.data()?.isAdmin === true;
@@ -185,7 +185,7 @@ export async function updateEhcpDocumentStatus(
     }
   })();
 
-  if (!isAdmin) {
+  if (!isAdminUser) {
     return { error: 'User does not have admin privileges.' };
   }
 

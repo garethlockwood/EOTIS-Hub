@@ -10,10 +10,11 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { PlusCircle, Search, Download, Edit, Trash2, Eye, Loader2, AlertTriangle } from 'lucide-react';
+import { PlusCircle, Search, Download, Edit, Trash2, Eye, Loader2, AlertTriangle, UserX } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/use-auth';
+import { useStudent } from '@/hooks/use-student'; // Import the new hook
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -41,6 +42,7 @@ import { getEhcpDocuments, deleteEhcpDocument, updateEhcpDocumentStatus } from '
 
 export default function EhcpPage() {
   const { user } = useAuth();
+  const { selectedStudent, isLoading: studentIsLoading } = useStudent();
   const { toast } = useToast();
   
   const [documents, setDocuments] = useState<EHCPDocument[]>([]);
@@ -56,16 +58,19 @@ export default function EhcpPage() {
   const [isUpdatingStatus, setIsUpdatingStatus] = useState<string | null>(null);
 
   const fetchDocuments = useCallback(async () => {
-    if (!user?.id) {
-      setError('User not authenticated. Cannot fetch documents.');
+    if (!user?.isAdmin || !selectedStudent?.id) {
       setIsLoading(false);
       setDocuments([]);
+      if(user?.isAdmin && !selectedStudent?.id) {
+          setError(null); // Not an error, just need to select a student
+      }
       return;
     }
+
     setIsLoading(true);
     setError(null);
     try {
-      const result = await getEhcpDocuments(user.id);
+      const result = await getEhcpDocuments(selectedStudent.id);
 
       if (result) { 
         if (result.documents) {
@@ -76,12 +81,10 @@ export default function EhcpPage() {
         } else {
           setError('Received an unexpected response format from the server.');
           setDocuments([]);
-          console.error('Unexpected response format from getEhcpDocuments:', result);
         }
       } else {
         setError('Failed to load documents. No response received from the server.');
         setDocuments([]);
-        console.error('Null or undefined response from getEhcpDocuments.');
       }
     } catch (e: any) {
       console.error('Client-side error in fetchDocuments:', e);
@@ -89,17 +92,14 @@ export default function EhcpPage() {
       setDocuments([]);
     }
     setIsLoading(false);
-  }, [user]);
+  }, [user?.isAdmin, selectedStudent?.id]);
 
   useEffect(() => {
-    if (user) { 
+    // This effect now triggers whenever the selected student changes.
+    if (user?.isAdmin) {
       fetchDocuments();
-    } else {
-      setIsLoading(false); 
-      setDocuments([]); 
-      setError('User not authenticated. Please log in to view documents.');
     }
-  }, [user, fetchDocuments]);
+  }, [user?.isAdmin, selectedStudent, fetchDocuments]);
 
   const filteredDocuments = useMemo(() => {
     return documents.filter(doc => {
@@ -130,7 +130,7 @@ export default function EhcpPage() {
     if (result.success) {
       toast({
         title: "Document Deleted",
-        description: `"${doc.name}" has been removed. ${result.error || ''}`,
+        description: `"${doc.name}" has been removed.`,
       });
       await fetchDocuments(); 
     } else {
@@ -176,48 +176,51 @@ export default function EhcpPage() {
     setIsUpdatingStatus(null);
   };
 
-  return (
-    <>
-      <PageHeader title="EHCP Documents" description="Manage current and previous Education, Health and Care Plans.">
-        {user?.isAdmin && (
-          <Button onClick={() => setIsUploadDialogOpen(true)} disabled={!user}>
-            <PlusCircle className="mr-2 h-4 w-4" /> Upload EHCP Document
-          </Button>
-        )}
-      </PageHeader>
-
-      <div className="mb-6 flex flex-col sm:flex-row gap-4">
-        <div className="relative flex-grow">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            type="search"
-            placeholder="Search by name, description, status, or uploader..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 w-full"
-            disabled={!user}
-          />
-        </div>
-      </div>
-
-      {isLoading && (
+  const renderContent = () => {
+    if (isLoading || studentIsLoading) {
+      return (
         <div className="flex justify-center items-center h-64">
           <Loader2 className="h-12 w-12 animate-spin text-primary" />
         </div>
-      )}
-      {!isLoading && error && (
+      );
+    }
+    if (!user?.isAdmin) {
+        return (
+             <Card className="bg-destructive/10 border-destructive">
+                <CardContent className="p-6 flex items-center gap-4">
+                    <AlertTriangle className="h-8 w-8 text-destructive" />
+                    <div>
+                    <h3 className="font-semibold text-destructive">Access Denied</h3>
+                    <p className="text-destructive/80">You do not have permission to view this page.</p>
+                    </div>
+                </CardContent>
+            </Card>
+        );
+    }
+    if (!selectedStudent) {
+      return (
+        <div className="flex flex-col justify-center items-center h-64 text-center">
+            <UserX className="h-12 w-12 text-muted-foreground mb-4" />
+            <h3 className="text-xl font-semibold">No Student Selected</h3>
+            <p className="text-muted-foreground">Please select a student from the dropdown in the header to view their documents.</p>
+        </div>
+      );
+    }
+    if (error) {
+      return (
          <Card className="bg-destructive/10 border-destructive">
           <CardContent className="p-6 flex items-center gap-4">
             <AlertTriangle className="h-8 w-8 text-destructive" />
             <div>
               <h3 className="font-semibold text-destructive">Error Loading Documents</h3>
               <p className="text-destructive/80">{error}</p>
-              {user && <Button variant="outline" size="sm" onClick={fetchDocuments} className="mt-2">Try Again</Button>}
+              <Button variant="outline" size="sm" onClick={fetchDocuments} className="mt-2">Try Again</Button>
             </div>
           </CardContent>
         </Card>
-      )}
-      {!isLoading && !error && user && (
+      );
+    }
+    return (
         <Card className="shadow-lg">
           <CardContent className="p-0">
             <Table>
@@ -310,7 +313,7 @@ export default function EhcpPage() {
                 ) : (
                   <TableRow>
                     <TableCell colSpan={6} className="h-24 text-center">
-                      No EHCP documents found. {searchTerm && "Try adjusting your search."}
+                      No EHCP documents found for this student. {searchTerm && "Try adjusting your search."}
                     </TableCell>
                   </TableRow>
                 )}
@@ -318,14 +321,42 @@ export default function EhcpPage() {
             </Table>
           </CardContent>
         </Card>
-      )}
+      );
+  }
+
+  return (
+    <>
+      <PageHeader title="EHCP Documents" description="Manage current and previous Education, Health and Care Plans.">
+        {user?.isAdmin && (
+          <Button onClick={() => setIsUploadDialogOpen(true)} disabled={!user || !selectedStudent}>
+            <PlusCircle className="mr-2 h-4 w-4" /> Upload Document
+          </Button>
+        )}
+      </PageHeader>
+
+      <div className="mb-6 flex flex-col sm:flex-row gap-4">
+        <div className="relative flex-grow">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            type="search"
+            placeholder="Search by name, description, status, or uploader..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10 w-full"
+            disabled={!user || !selectedStudent}
+          />
+        </div>
+      </div>
+        
+      {renderContent()}
       
-      {user?.isAdmin && (
+      {user?.isAdmin && selectedStudent && (
         <EhcpUploadDialog
           isOpen={isUploadDialogOpen}
           onOpenChange={setIsUploadDialogOpen}
           onUploadComplete={fetchDocuments}
           actingUserId={user.id} 
+          associatedUserId={selectedStudent.id}
         />
       )}
       
@@ -368,5 +399,3 @@ export default function EhcpPage() {
     </>
   );
 }
-
-    

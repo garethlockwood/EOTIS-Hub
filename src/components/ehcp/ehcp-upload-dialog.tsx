@@ -25,17 +25,17 @@ interface EhcpUploadDialogProps {
   onOpenChange: (open: boolean) => void;
   onUploadComplete: () => void;
   trigger?: React.ReactNode;
-  actingUserId: string | undefined; 
+  actingUserId: string; 
+  associatedUserId: string;
 }
 
-export function EhcpUploadDialog({ isOpen, onOpenChange, onUploadComplete, trigger, actingUserId }: EhcpUploadDialogProps) {
+export function EhcpUploadDialog({ isOpen, onOpenChange, onUploadComplete, trigger, actingUserId, associatedUserId }: EhcpUploadDialogProps) {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedFile, setSelectedFile]  = useState<File | null>(null);
   const [fileName, setFileName] = useState('');
   const [description, setDescription] = useState('');
   const [status, setStatus] = useState<'Current' | 'Previous'>('Current');
-  // associatedUserIdInput is removed
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -64,7 +64,6 @@ export function EhcpUploadDialog({ isOpen, onOpenChange, onUploadComplete, trigg
     setFileName('');
     setDescription('');
     setStatus('Current');
-    // associatedUserIdInput reset is removed
     const fileInput = document.getElementById('ehcpFile') as HTMLInputElement;
     if (fileInput) fileInput.value = "";
   };
@@ -75,7 +74,11 @@ export function EhcpUploadDialog({ isOpen, onOpenChange, onUploadComplete, trigg
       toast({ variant: 'destructive', title: 'Authentication Error', description: 'Cannot upload document without an authenticated admin user.' });
       return;
     }
-    if (!selectedFile || !fileName.trim() || !status ) { // Removed check for associatedUserIdInput.trim()
+    if (!associatedUserId) {
+      toast({ variant: 'destructive', title: 'Student Not Selected', description: 'A student must be selected to associate the document.' });
+      return;
+    }
+    if (!selectedFile || !fileName.trim() || !status) {
       toast({ variant: 'destructive', title: 'Missing Fields', description: 'Please provide a file, name, and status.' });
       return;
     }
@@ -86,7 +89,7 @@ export function EhcpUploadDialog({ isOpen, onOpenChange, onUploadComplete, trigg
     formData.append('name', fileName.trim());
     formData.append('description', description.trim());
     formData.append('status', status);
-    formData.append('associatedUserId', actingUserId); // Use actingUserId (admin's ID)
+    formData.append('associatedUserId', associatedUserId);
 
     const result = await addEhcpDocument(formData, actingUserId);
 
@@ -111,7 +114,7 @@ export function EhcpUploadDialog({ isOpen, onOpenChange, onUploadComplete, trigg
         <DialogHeader>
           <DialogTitle className="font-headline">Upload EHCP Document</DialogTitle>
           <DialogDescription>
-            Select a PDF or DOCX file and provide details. The document will be associated with your user ID. Max file size: 10MB.
+            Select a PDF or DOCX file and provide details. Max file size: 10MB.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="grid gap-6 py-4">
@@ -122,10 +125,8 @@ export function EhcpUploadDialog({ isOpen, onOpenChange, onUploadComplete, trigg
           
           <div>
             <Label htmlFor="fileName">Document Name</Label>
-            <Input id="fileName" value={fileName} onChange={(e) => setFileName(e.target.value)} className="mt-1" placeholder="e.g., Final EHCP - [Your Name]" required />
+            <Input id="fileName" value={fileName} onChange={(e) => setFileName(e.target.value)} className="mt-1" placeholder="e.g., Final EHCP - [Student Name]" required />
           </div>
-
-          {/* Removed Associated User ID input field */}
 
           <div>
             <Label htmlFor="status">Status</Label>
@@ -149,7 +150,7 @@ export function EhcpUploadDialog({ isOpen, onOpenChange, onUploadComplete, trigg
             <Button type="button" variant="outline" onClick={() => { onOpenChange(false); resetForm(); }} disabled={isSubmitting}>
               Cancel
             </Button>
-            <Button type="submit" disabled={isSubmitting || !selectedFile || !actingUserId}>
+            <Button type="submit" disabled={isSubmitting || !selectedFile || !actingUserId || !associatedUserId}>
               {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UploadCloud className="mr-2 h-4 w-4" />}
               Upload Document
             </Button>
