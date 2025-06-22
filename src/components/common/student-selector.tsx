@@ -4,7 +4,6 @@
 import React from 'react';
 import { useStudent } from '@/hooks/use-student';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Loader2, Users } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 
@@ -29,7 +28,7 @@ export function StudentSelector() {
        <Select
             value={selectedStudent?.id ?? ''}
             onValueChange={handleValueChange}
-            disabled={isLoading}
+            disabled={isLoading || students.length === 0}
         >
         <SelectTrigger className="w-[180px] md:w-[220px] lg:w-[250px]" title={error ?? undefined}>
             <SelectValue placeholder="Select a student">
@@ -41,13 +40,7 @@ export function StudentSelector() {
                 ) : error ? (
                     <span className="text-destructive truncate">{error}</span>
                 ) : selectedStudent ? (
-                    <div className="flex items-center gap-2">
-                        <Avatar className="h-6 w-6">
-                            <AvatarImage src={selectedStudent.avatarUrl || undefined} alt={selectedStudent.name || "Student"} />
-                            <AvatarFallback>{selectedStudent.name ? selectedStudent.name.substring(0, 2).toUpperCase() : 'S'}</AvatarFallback>
-                        </Avatar>
-                        <span className="truncate">{selectedStudent.name}</span>
-                    </div>
+                    <span className="truncate">{selectedStudent.name}</span>
                 ) : (
                     <span className="text-muted-foreground">{students.length > 0 ? "Select Student" : "No Students"}</span>
                 )}
@@ -57,13 +50,7 @@ export function StudentSelector() {
             {students.length > 0 ? (
                 students.map(student => (
                     <SelectItem key={student.id} value={student.id}>
-                         <div className="flex items-center gap-2">
-                            <Avatar className="h-6 w-6">
-                                <AvatarImage src={student.avatarUrl || undefined} alt={student.name || "Student"} />
-                                <AvatarFallback>{student.name ? student.name.substring(0, 2).toUpperCase() : 'S'}</AvatarFallback>
-                            </Avatar>
-                            <span className="truncate">{student.name}</span>
-                        </div>
+                        <span className="truncate">{student.name}</span>
                     </SelectItem>
                 ))
             ) : (
@@ -76,3 +63,4 @@ export function StudentSelector() {
     </div>
   );
 }
+
