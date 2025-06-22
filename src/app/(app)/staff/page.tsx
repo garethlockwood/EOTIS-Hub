@@ -8,21 +8,30 @@ import type { StaffMember } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { PlusCircle, Search } from 'lucide-react';
+import { PlusCircle, Search, Loader2, UserX } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
+import { useStudent } from '@/hooks/use-student';
+import { Card, CardContent } from '@/components/ui/card';
 // Placeholder for Add/Edit Staff Dialog (future implementation)
 // import { StaffFormDialog } from '@/components/staff/staff-form-dialog';
 
 export default function StaffDirectoryPage() {
   const { user } = useAuth();
-  const [staffList, setStaffList] = useState<StaffMember[]>(PLACEHOLDER_STAFF);
+  const { selectedStudent, isLoading: studentIsLoading } = useStudent();
+  const [staffList] = useState<StaffMember[]>(PLACEHOLDER_STAFF);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'Tutor' | 'Professional'>('all');
   // const [isFormOpen, setIsFormOpen] = useState(false);
   // const [editingMember, setEditingMember] = useState<StaffMember | null>(null);
 
   const filteredStaff = useMemo(() => {
+    if (!selectedStudent) return [];
+
     return staffList.filter(member => {
+      // Show staff member if they are associated with the selected student
+      const matchesStudent = member.studentIds?.includes(selectedStudent.id);
+      if (!matchesStudent) return false;
+      
       const matchesType = filterType === 'all' || member.type === filterType;
       const matchesSearch = 
         member.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -31,7 +40,7 @@ export default function StaffDirectoryPage() {
         (member.subjects && member.subjects.join(' ').toLowerCase().includes(searchTerm.toLowerCase()));
       return matchesType && matchesSearch;
     });
-  }, [staffList, searchTerm, filterType]);
+  }, [staffList, searchTerm, filterType, selectedStudent]);
 
   // const handleSaveStaff = (member: StaffMember) => {
   //   // Placeholder for save logic
@@ -39,6 +48,44 @@ export default function StaffDirectoryPage() {
   //   setIsFormOpen(false);
   //   setEditingMember(null);
   // };
+
+  const renderContent = () => {
+    if (studentIsLoading) {
+      return (
+        <div className="flex justify-center items-center h-64">
+          <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        </div>
+      );
+    }
+    
+    if (!selectedStudent && user?.isAdmin) {
+      return (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center h-96 text-center">
+            <UserX className="h-16 w-16 text-muted-foreground mb-4" />
+            <h3 className="text-xl font-semibold">No Student Selected</h3>
+            <p className="text-muted-foreground">Please select a student to view their associated staff.</p>
+          </CardContent>
+        </Card>
+      );
+    }
+    
+    if (filteredStaff.length > 0) {
+      return (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {filteredStaff.map(member => (
+            <StaffCard key={member.id} member={member} />
+          ))}
+        </div>
+      );
+    }
+
+    return (
+      <div className="text-center py-10">
+        <p className="text-xl text-muted-foreground">No staff members found matching your criteria for this student.</p>
+      </div>
+    );
+  };
 
   return (
     <>
@@ -57,9 +104,10 @@ export default function StaffDirectoryPage() {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10 w-full"
+            disabled={!selectedStudent}
           />
         </div>
-        <Select value={filterType} onValueChange={(value: 'all' | 'Tutor' | 'Professional') => setFilterType(value)}>
+        <Select value={filterType} onValueChange={(value: 'all' | 'Tutor' | 'Professional') => setFilterType(value)} disabled={!selectedStudent}>
           <SelectTrigger className="w-full sm:w-[180px]">
             <SelectValue placeholder="Filter by type" />
           </SelectTrigger>
@@ -71,17 +119,7 @@ export default function StaffDirectoryPage() {
         </Select>
       </div>
 
-      {filteredStaff.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {filteredStaff.map(member => (
-            <StaffCard key={member.id} member={member} />
-          ))}
-        </div>
-      ) : (
-        <div className="text-center py-10">
-          <p className="text-xl text-muted-foreground">No staff members found matching your criteria.</p>
-        </div>
-      )}
+      {renderContent()}
 
       {/* Placeholder for Add/Edit Staff Dialog
       <StaffFormDialog 

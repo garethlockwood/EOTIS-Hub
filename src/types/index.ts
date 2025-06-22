@@ -92,6 +92,7 @@ export interface StaffMember {
   contactEmail?: string;
   contactPhone?: string;
   subjects?: string[]; // For tutors
+  studentIds?: string[];
 }
 
 export interface FinancialDocument {
