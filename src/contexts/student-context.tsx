@@ -5,6 +5,7 @@ import React, { createContext, useState, useEffect, useCallback, useMemo } from 
 import type { Student } from '@/types';
 import { useAuth } from '@/hooks/use-auth';
 import { getManagedStudents } from '@/app/(app)/students/actions';
+import { useToast } from '@/hooks/use-toast';
 
 interface StudentContextType {
   students: Student[];
@@ -30,12 +31,13 @@ export const StudentProvider = ({ children }: { children: React.ReactNode }) => 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refetchTrigger, setRefetchTrigger] = useState(0);
+  const { toast } = useToast();
 
   const refreshStudents = useCallback(() => {
     setRefetchTrigger(prev => prev + 1);
   }, []);
 
-  const addAndSelectStudent = (newStudent: Student) => {
+  const addAndSelectStudent = useCallback((newStudent: Student) => {
     setStudents(prevStudents => 
       [...prevStudents, newStudent].sort((a, b) => a.name.localeCompare(b.name))
     );
@@ -43,7 +45,11 @@ export const StudentProvider = ({ children }: { children: React.ReactNode }) => 
     if (typeof window !== 'undefined') {
       localStorage.setItem('selectedStudentId', newStudent.id);
     }
-  };
+    toast({
+        title: 'Student Context Changed',
+        description: `Now managing ${newStudent.name}.`,
+    });
+  }, [toast]);
 
   useEffect(() => {
     if (!adminUser?.isAdmin) {
@@ -62,8 +68,7 @@ export const StudentProvider = ({ children }: { children: React.ReactNode }) => 
     getManagedStudents(adminUser.id)
       .then(result => {
         if (result.students) {
-          // No need to sort here anymore, Firestore does it.
-          const fetchedStudents = result.students;
+          const fetchedStudents = result.students.sort((a,b) => a.name.localeCompare(b.name));
           setStudents(fetchedStudents);
           setError(null);
           
@@ -95,6 +100,14 @@ export const StudentProvider = ({ children }: { children: React.ReactNode }) => 
 
   const handleSetSelectedStudent = useCallback((student: Student | null) => {
     const newId = student ? student.id : null;
+    
+    if (newId && newId !== selectedStudentId) {
+        toast({
+            title: 'Student Context Changed',
+            description: `Now managing ${student?.name}.`,
+        });
+    }
+
     setSelectedStudentId(newId);
     if (typeof window !== 'undefined') {
       if (newId) {
@@ -103,7 +116,7 @@ export const StudentProvider = ({ children }: { children: React.ReactNode }) => 
         localStorage.removeItem('selectedStudentId');
       }
     }
-  }, []);
+  }, [selectedStudentId, toast]);
 
   const selectedStudent = useMemo(() => {
     return students.find(s => s.id === selectedStudentId) || (students.length > 0 ? students[0] : null);
