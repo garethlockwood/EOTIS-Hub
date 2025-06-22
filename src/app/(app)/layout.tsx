@@ -8,7 +8,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { NAV_ITEMS } from '@/lib/constants';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Sheet, SheetContent, SheetTitle, SheetClose } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetTitle, SheetClose, SheetTrigger } from '@/components/ui/sheet';
 import { Menu, X, Settings, Bell, ChevronsLeft, ChevronsRight, LogOut, Loader2 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import Image from 'next/image';
@@ -245,4 +245,3 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     </StudentProvider>
   );
 }
-
