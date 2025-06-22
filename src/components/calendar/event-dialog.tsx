@@ -20,10 +20,10 @@ import { CalendarIcon } from 'lucide-react';
 import { Calendar as ShadCalendar } from '@/components/ui/calendar';
 import { format, parseISO } from 'date-fns';
 import type { CalendarEvent } from '@/types';
-import { TUTOR_NAMES } from '@/lib/constants';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/hooks/use-auth';
 import { getCurrencySymbol } from '@/lib/utils';
+import { getTutorNames } from '@/app/(app)/staff/actions';
 
 interface EventDialogProps {
   event?: CalendarEvent | null;
@@ -50,6 +50,15 @@ export function EventDialog({ event, date, studentId, isOpen, onOpenChange, onSa
   const { currency } = useAuth();
   const [formData, setFormData] = useState<Omit<CalendarEvent, 'id'>>(initialEventState);
   const [open, setOpen] = useState(isOpen || false);
+  const [tutorList, setTutorList] = useState<string[]>([]);
+
+  useEffect(() => {
+    getTutorNames().then(result => {
+      if (result.tutors) {
+        setTutorList(result.tutors);
+      }
+    });
+  }, []);
 
   useEffect(() => {
     if (isOpen !== undefined) {
@@ -205,7 +214,7 @@ export function EventDialog({ event, date, studentId, isOpen, onOpenChange, onSa
                 <SelectValue placeholder="Select a tutor" />
               </SelectTrigger>
               <SelectContent>
-                {TUTOR_NAMES.map(name => (
+                {tutorList.map(name => (
                   <SelectItem key={name} value={name}>{name}</SelectItem>
                 ))}
                 <SelectItem value="N/A">N/A / Other</SelectItem>

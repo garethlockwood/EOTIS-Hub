@@ -33,13 +33,6 @@ export const PLACEHOLDER_MEETINGS: ScheduledMeeting[] = [
   { id: '2', title: 'Progress Update with Parents', time: '11:00 AM', date: new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0], participants: ['Mr. & Mrs. Davis'], meetingLink: '#', studentId: 'student_2_placeholder' },
 ];
 
-export const PLACEHOLDER_STAFF: StaffMember[] = [
-  { id: '1', name: 'Dr. Emily Carter', type: 'Tutor', bio: 'PhD in Mathematics with 10+ years of teaching experience. Specializes in advanced algebra and calculus.', hourlyRate: 75, avatarUrl: 'https://placehold.co/100x100.png', contactEmail: 'emily.carter@eotishub.com', subjects: ['Mathematics', 'Calculus', 'Algebra'] , dataAiHint: "woman teacher", studentIds: ['student_1_placeholder'] },
-  { id: '2', name: 'Mr. John Doe', type: 'Tutor', bio: 'MSc in Physics, passionate about making science accessible to all students. 5 years experience.', hourlyRate: 60, avatarUrl: 'https://placehold.co/100x100.png', contactEmail: 'john.doe@eotishub.com', subjects: ['Physics', 'General Science'] , dataAiHint: "man teacher", studentIds: ['student_2_placeholder'] },
-  { id: '3', name: 'Dr. Sarah Miller', type: 'Professional', specialty: 'Educational Psychologist', bio: 'Chartered Educational Psychologist focused on learning assessments and support strategies for children with SEN.', avatarUrl: 'https://placehold.co/100x100.png', contactEmail: 'sarah.miller@eotishub.com', dataAiHint: "woman professional", studentIds: ['student_1_placeholder', 'student_2_placeholder'] },
-  { id: '4', name: 'Mr. David Wilson', type: 'Professional', specialty: 'Speech Therapist', bio: 'Experienced Speech and Language Therapist working with children to improve communication skills.', avatarUrl: 'https://placehold.co/100x100.png', contactEmail: 'david.wilson@eotishub.com', dataAiHint: "man professional", studentIds: ['student_2_placeholder'] },
-];
-
 export const PLACEHOLDER_FINANCIAL_DOCS: FinancialDocument[] = [
   { id: '1', name: 'Invoice INV-00123.pdf', type: 'Invoice', uploadDate: '2024-07-01', amount: 250, status: 'Unpaid', fileUrl: '#', studentId: 'student_1_placeholder' },
   { id: '2', name: 'Receipt RCPT-0045.pdf', type: 'Receipt', uploadDate: '2024-06-28', amount: 180, status: 'Paid', fileUrl: '#', studentId: 'student_1_placeholder' },
@@ -58,5 +51,3 @@ export const PLACEHOLDER_CALENDAR_EVENTS: CalendarEvent[] = [
   { id: 'evt2', title: 'Physics Lab - Bob', start: new Date(new Date().setDate(new Date().getDate() + 2)), end: new Date(new Date(new Date().setDate(new Date().getDate() + 2)).setHours(new Date().getHours() + 2)), tutorName: 'Mr. John Doe', cost: 120, meetingLink: '#', color: 'hsl(var(--accent))', studentId: 'student_2_placeholder' },
   { id: 'evt3', title: 'EHCP Consultation', start: new Date(new Date().setDate(new Date().getDate() -1)), end: new Date(new Date(new Date().setDate(new Date().getDate() -1)).setHours(new Date().getHours() + 1)), tutorName: 'N/A', cost: 0, description: 'Meeting with SENCO', color: 'hsl(var(--secondary))', studentId: 'student_1_placeholder' },
 ];
-
-export const TUTOR_NAMES: string[] = PLACEHOLDER_STAFF.filter(s => s.type === 'Tutor').map(s => s.name);
