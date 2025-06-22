@@ -29,14 +29,14 @@ export async function getStaffForStudent(
   }
 
   try {
+    // Note: .orderBy('name', 'asc') was removed to prevent an error on fresh databases.
+    // Sorting is handled client-side. For large datasets, create the composite index
+    // in Firestore on (studentIds ASC, name ASC) and re-add .orderBy('name', 'asc') here.
     const snapshot = await dbAdmin
       .collection('staff')
       .where('studentIds', 'array-contains', studentId)
-      .orderBy('name', 'asc')
       .get();
     
-    // This query requires a composite index on (studentIds, name ASC)
-
     if (snapshot.empty) {
       return { staff: [] };
     }
@@ -53,7 +53,7 @@ export async function getStaffForStudent(
   } catch (error: any) {
     console.error('[getStaffForStudent] Error:', error);
     if (error.code === 'FAILED_PRECONDITION') {
-        return { error: 'Firestore index required for staff query. Please create a composite index on (studentIds ASC, name ASC) in the `staff` collection.' };
+        return { error: 'Firestore index required. Please create a composite index on (studentIds ASC, name ASC) in the `staff` collection using the link in the terminal error log.' };
     }
     return { error: `Failed to fetch staff: ${error.message}` };
   }
@@ -102,10 +102,12 @@ export async function addStaffMember(
 // Fetches just the names of all tutors
 export async function getTutorNames(): Promise<{ tutors?: string[]; error?: string }> {
   try {
+    // Note: .orderBy('name', 'asc') was removed to prevent an error on fresh databases.
+    // Sorting is handled client-side. For large datasets, create the composite index
+    // in Firestore on (type ASC, name ASC) and re-add .orderBy('name', 'asc') here.
     const snapshot = await dbAdmin
       .collection('staff')
       .where('type', '==', 'Tutor')
-      .orderBy('name', 'asc')
       .get();
     
     if (snapshot.empty) {
@@ -117,7 +119,7 @@ export async function getTutorNames(): Promise<{ tutors?: string[]; error?: stri
   } catch (error: any) {
      console.error('[getTutorNames] Error:', error);
     if (error.code === 'FAILED_PRECONDITION') {
-        return { error: 'Firestore index required for tutor name query. Please create an index on (type ASC, name ASC) in the `staff` collection.' };
+        return { error: 'Firestore index required. Please create an index on (type ASC, name ASC) in the `staff` collection.' };
     }
     return { error: `Failed to fetch tutors: ${error.message}` };
   }

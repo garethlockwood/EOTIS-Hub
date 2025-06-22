@@ -55,7 +55,8 @@ export function EventDialog({ event, date, studentId, isOpen, onOpenChange, onSa
   useEffect(() => {
     getTutorNames().then(result => {
       if (result.tutors) {
-        setTutorList(result.tutors);
+        const sortedTutors = result.tutors.sort((a, b) => a.localeCompare(b));
+        setTutorList(sortedTutors);
       }
     });
   }, []);
