@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState } from 'react';
@@ -10,14 +11,18 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PLACEHOLDER_LESSONS, PLACEHOLDER_INVOICES, PLACEHOLDER_MEETINGS, PLACEHOLDER_TODOS } from '@/lib/constants';
 import type { UpcomingLesson, UnpaidInvoice, ScheduledMeeting, TodoItem } from '@/types';
-import { CalendarClock, FileText, Users2, ListChecks, PlusCircle } from 'lucide-react';
+import { CalendarClock, FileText, Users2, ListChecks, PlusCircle, UserPlus } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/use-auth';
+import { useStudent } from '@/hooks/use-student';
+import { AddStudentDialog } from '@/components/students/add-student-dialog';
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  const { refreshStudents } = useStudent();
   const [todos, setTodos] = useState<TodoItem[]>(PLACEHOLDER_TODOS);
   const [newTodo, setNewTodo] = useState('');
+  const [isAddStudentOpen, setIsAddStudentOpen] = useState(false);
 
   const handleToggleTodo = (id: string) => {
     setTodos(prevTodos =>
@@ -35,6 +40,10 @@ export default function DashboardPage() {
       { id: Date.now().toString(), text: newTodo.trim(), completed: false },
     ]);
     setNewTodo('');
+  };
+
+  const handleStudentAdded = () => {
+    refreshStudents();
   };
 
   const upcomingLessons: UpcomingLesson[] = PLACEHOLDER_LESSONS;
@@ -147,6 +156,15 @@ export default function DashboardPage() {
                 <PlusCircle className="mr-2 h-4 w-4" /> New Invoice
               </Link>
             </Button>
+            <Button 
+                variant="outline" 
+                className="w-full" 
+                disabled={!user?.isAdmin}
+                title={!user?.isAdmin ? "Admin rights required" : "Add New Student"}
+                onClick={() => user?.isAdmin && setIsAddStudentOpen(true)}
+            >
+              <UserPlus className="mr-2 h-4 w-4" /> Add Student
+            </Button>
             <Button variant="outline" asChild className="w-full" disabled={!user?.isAdmin} 
               title={!user?.isAdmin ? "Admin rights required" : "Add Staff Member"}
             >
@@ -161,9 +179,22 @@ export default function DashboardPage() {
                 <PlusCircle className="mr-2 h-4 w-4" /> Upload Doc
               </Link>
             </Button>
+            <Button variant="outline" asChild className="w-full" disabled>
+              <Link href="#">
+                <PlusCircle className="mr-2 h-4 w-4" /> Add Meeting
+              </Link>
+            </Button>
           </CardContent>
         </Card>
       </div>
+
+      {user?.isAdmin && (
+        <AddStudentDialog 
+            isOpen={isAddStudentOpen} 
+            onOpenChange={setIsAddStudentOpen} 
+            onStudentAdded={handleStudentAdded}
+        />
+      )}
     </>
   );
 }

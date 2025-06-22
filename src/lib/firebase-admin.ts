@@ -1,8 +1,10 @@
+
 // src/lib/firebase-admin.ts
 import 'dotenv/config'; // ✅ Ensure .env loads in CLI + runtime
 import { getApps, initializeApp, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
+import { getAuth } from 'firebase-admin/auth';
 
 // ✅ Load and validate required environment variables
 const projectId = process.env.FIREBASE_PROJECT_ID;
@@ -35,6 +37,8 @@ if (!getApps().length) {
 // ✅ Export Firestore and Storage instances
 const dbAdmin = getFirestore();
 const storageAdmin = getStorage();
+const authAdmin = getAuth();
+
 
 // ✅ Log the actual bucket name
 const actualBucketName = storageAdmin.bucket().name;
@@ -44,4 +48,4 @@ if (!actualBucketName || !actualBucketName.includes('.appspot.com')) {
   console.log('✅ Admin SDK Storage Bucket:', actualBucketName);
 }
 
-export { dbAdmin, storageAdmin };
+export { dbAdmin, storageAdmin, authAdmin };

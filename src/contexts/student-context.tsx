@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { createContext, useState, useEffect, useCallback, useMemo } from 'react';
@@ -11,6 +12,7 @@ interface StudentContextType {
   setSelectedStudent: (student: User | null) => void;
   isLoading: boolean;
   error?: string | null;
+  refreshStudents: () => void;
 }
 
 export const StudentContext = createContext<StudentContextType | undefined>(undefined);
@@ -26,6 +28,11 @@ export const StudentProvider = ({ children }: { children: React.ReactNode }) => 
   });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [refetchTrigger, setRefetchTrigger] = useState(0);
+
+  const refreshStudents = useCallback(() => {
+    setRefetchTrigger(prev => prev + 1);
+  }, []);
 
   useEffect(() => {
     if (adminUser?.isAdmin) {
@@ -34,10 +41,11 @@ export const StudentProvider = ({ children }: { children: React.ReactNode }) => 
         .then(result => {
           if (result.students) {
             setStudents(result.students);
-            // If no student is selected or the selected one is no longer valid, select the first one.
             const currentIsValid = result.students.some(s => s.id === selectedStudentId);
             if ((!selectedStudentId || !currentIsValid) && result.students.length > 0) {
-              setSelectedStudentId(result.students[0].id);
+              const newSelectedId = result.students[0].id;
+              setSelectedStudentId(newSelectedId);
+              localStorage.setItem('selectedStudentId', newSelectedId);
             }
           } else if (result.error) {
             setError(result.error);
@@ -51,12 +59,12 @@ export const StudentProvider = ({ children }: { children: React.ReactNode }) => 
           setIsLoading(false);
         });
     } else if (!authIsLoading) {
-      // If user is not an admin, clear student data
       setStudents([]);
       setSelectedStudentId(null);
+      localStorage.removeItem('selectedStudentId');
       setIsLoading(false);
     }
-  }, [adminUser, authIsLoading, selectedStudentId]);
+  }, [adminUser, authIsLoading, refetchTrigger, selectedStudentId]);
 
   const handleSetSelectedStudent = useCallback((student: User | null) => {
     const newId = student ? student.id : null;
@@ -69,7 +77,7 @@ export const StudentProvider = ({ children }: { children: React.ReactNode }) => 
   }, []);
 
   const selectedStudent = useMemo(() => {
-    return students.find(s => s.id === selectedStudentId) || null;
+    return students.find(s => s.id === selectedStudentId) || (students.length > 0 ? students[0] : null);
   }, [students, selectedStudentId]);
 
   const value = {
@@ -78,6 +86,7 @@ export const StudentProvider = ({ children }: { children: React.ReactNode }) => 
     setSelectedStudent: handleSetSelectedStudent,
     isLoading: authIsLoading || isLoading,
     error,
+    refreshStudents,
   };
 
   return <StudentContext.Provider value={value}>{children}</StudentContext.Provider>;
