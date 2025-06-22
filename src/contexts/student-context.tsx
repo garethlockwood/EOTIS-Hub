@@ -13,6 +13,7 @@ interface StudentContextType {
   isLoading: boolean;
   error?: string | null;
   refreshStudents: () => void;
+  refreshAndSelectStudent: (studentId: string) => void;
 }
 
 export const StudentContext = createContext<StudentContextType | undefined>(undefined);
@@ -29,42 +30,71 @@ export const StudentProvider = ({ children }: { children: React.ReactNode }) => 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refetchTrigger, setRefetchTrigger] = useState(0);
+  const [studentIdToSelectAfterFetch, setStudentIdToSelectAfterFetch] = useState<string | null>(null);
 
   const refreshStudents = useCallback(() => {
     setRefetchTrigger(prev => prev + 1);
   }, []);
 
+  const refreshAndSelectStudent = useCallback((studentId: string) => {
+    setStudentIdToSelectAfterFetch(studentId);
+    refreshStudents();
+  }, [refreshStudents]);
+
   useEffect(() => {
-    if (adminUser?.isAdmin) {
-      setIsLoading(true);
-      getManagedStudents(adminUser.id)
-        .then(result => {
-          if (result.students) {
-            setStudents(result.students);
-            const currentIsValid = result.students.some(s => s.id === selectedStudentId);
-            if ((!selectedStudentId || !currentIsValid) && result.students.length > 0) {
-              const newSelectedId = result.students[0].id;
-              setSelectedStudentId(newSelectedId);
-              localStorage.setItem('selectedStudentId', newSelectedId);
-            }
-          } else if (result.error) {
-            setError(result.error);
-          }
-        })
-        .catch(err => {
-            console.error("Failed to fetch students in context", err);
-            setError("An unexpected error occurred while fetching students.");
-        })
-        .finally(() => {
-          setIsLoading(false);
-        });
-    } else if (!authIsLoading) {
-      setStudents([]);
-      setSelectedStudentId(null);
-      localStorage.removeItem('selectedStudentId');
-      setIsLoading(false);
+    if (!adminUser?.isAdmin) {
+      if (!authIsLoading) {
+        setStudents([]);
+        setSelectedStudentId(null);
+        localStorage.removeItem('selectedStudentId');
+        setIsLoading(false);
+      }
+      return;
     }
-  }, [adminUser, authIsLoading, refetchTrigger, selectedStudentId]);
+
+    setIsLoading(true);
+    getManagedStudents(adminUser.id)
+      .then(result => {
+        if (result.students) {
+          setStudents(result.students);
+          
+          let idToSet = selectedStudentId;
+
+          // If a specific student was requested for selection, prioritize that.
+          if (studentIdToSelectAfterFetch && result.students.some(s => s.id === studentIdToSelectAfterFetch)) {
+            idToSet = studentIdToSelectAfterFetch;
+            setStudentIdToSelectAfterFetch(null); // Reset after use
+          } else {
+            // Otherwise, validate the current selection or pick the first student.
+            const currentIsValid = result.students.some(s => s.id === selectedStudentId);
+            if (!currentIsValid && result.students.length > 0) {
+              idToSet = result.students[0].id;
+            } else if (!currentIsValid && result.students.length === 0) {
+              idToSet = null;
+            }
+          }
+
+          // Update state and localStorage only if there's a change.
+          if (idToSet !== selectedStudentId) {
+            setSelectedStudentId(idToSet);
+            if (idToSet) {
+              localStorage.setItem('selectedStudentId', idToSet);
+            } else {
+              localStorage.removeItem('selectedStudentId');
+            }
+          }
+        } else if (result.error) {
+          setError(result.error);
+        }
+      })
+      .catch(err => {
+          console.error("Failed to fetch students in context", err);
+          setError("An unexpected error occurred while fetching students.");
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
+  }, [adminUser, authIsLoading, refetchTrigger]);
 
   const handleSetSelectedStudent = useCallback((student: User | null) => {
     const newId = student ? student.id : null;
@@ -87,6 +117,7 @@ export const StudentProvider = ({ children }: { children: React.ReactNode }) => 
     isLoading: authIsLoading || isLoading,
     error,
     refreshStudents,
+    refreshAndSelectStudent,
   };
 
   return <StudentContext.Provider value={value}>{children}</StudentContext.Provider>;

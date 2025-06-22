@@ -19,7 +19,7 @@ import { AddStudentDialog } from '@/components/students/add-student-dialog';
 
 export default function DashboardPage() {
   const { user } = useAuth();
-  const { refreshStudents } = useStudent();
+  const { refreshAndSelectStudent } = useStudent();
   const [todos, setTodos] = useState<TodoItem[]>(PLACEHOLDER_TODOS);
   const [newTodo, setNewTodo] = useState('');
   const [isAddStudentOpen, setIsAddStudentOpen] = useState(false);
@@ -42,8 +42,8 @@ export default function DashboardPage() {
     setNewTodo('');
   };
 
-  const handleStudentAdded = () => {
-    refreshStudents();
+  const handleStudentAdded = (newStudentId: string) => {
+    refreshAndSelectStudent(newStudentId);
   };
 
   const upcomingLessons: UpcomingLesson[] = PLACEHOLDER_LESSONS;

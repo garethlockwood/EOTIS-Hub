@@ -39,7 +39,7 @@ type AddStudentFormValues = z.infer<typeof addStudentSchema>;
 interface AddStudentDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
-  onStudentAdded: () => void;
+  onStudentAdded: (newStudentId: string) => void;
 }
 
 export function AddStudentDialog({ isOpen, onOpenChange, onStudentAdded }: AddStudentDialogProps) {
@@ -72,12 +72,12 @@ export function AddStudentDialog({ isOpen, onOpenChange, onStudentAdded }: AddSt
     // Call the simplified createStudent action without a password
     const result = await createStudent(adminUser.id, data);
 
-    if (result.success) {
+    if (result.success && result.studentId) {
       toast({
         title: 'Student Record Created',
         description: `A record for ${data.name} has been created.`,
       });
-      onStudentAdded();
+      onStudentAdded(result.studentId);
       handleOpenChange(false);
     } else {
       toast({
