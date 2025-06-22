@@ -28,10 +28,10 @@ import { useAuth } from '@/hooks/use-auth';
 import { createStudent } from '@/app/(app)/students/actions';
 import { Loader2, UserPlus } from 'lucide-react';
 
+// Schema no longer includes a password
 const addStudentSchema = z.object({
   name: z.string().min(2, { message: 'Name must be at least 2 characters.' }),
   email: z.string().email({ message: 'Please enter a valid email address.' }),
-  password: z.string().min(8, { message: 'Temporary password must be at least 8 characters.' }),
 });
 
 type AddStudentFormValues = z.infer<typeof addStudentSchema>;
@@ -52,7 +52,6 @@ export function AddStudentDialog({ isOpen, onOpenChange, onStudentAdded }: AddSt
     defaultValues: {
       name: '',
       email: '',
-      password: '',
     },
   });
 
@@ -70,12 +69,13 @@ export function AddStudentDialog({ isOpen, onOpenChange, onStudentAdded }: AddSt
     }
     setIsSubmitting(true);
     
+    // Call the simplified createStudent action without a password
     const result = await createStudent(adminUser.id, data);
 
     if (result.success) {
       toast({
-        title: 'Student Created',
-        description: `An account for ${data.name} has been created. They will be prompted to change their password on first login.`,
+        title: 'Student Record Created',
+        description: `A record for ${data.name} has been created.`,
       });
       onStudentAdded();
       handleOpenChange(false);
@@ -95,7 +95,7 @@ export function AddStudentDialog({ isOpen, onOpenChange, onStudentAdded }: AddSt
         <DialogHeader>
           <DialogTitle className="font-headline">Add New Student</DialogTitle>
           <DialogDescription>
-            Create a new student account. They will be assigned a temporary password and forced to change it upon their first login.
+            Create a new student record. This will not create a login account.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -126,19 +126,7 @@ export function AddStudentDialog({ isOpen, onOpenChange, onStudentAdded }: AddSt
                 </FormItem>
               )}
             />
-            <FormField
-              control={form.control}
-              name="password"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Temporary Password</FormLabel>
-                  <FormControl>
-                    <Input type="password" placeholder="A secure temporary password" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {/* Password field is removed */}
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => handleOpenChange(false)} disabled={isSubmitting}>
                 Cancel

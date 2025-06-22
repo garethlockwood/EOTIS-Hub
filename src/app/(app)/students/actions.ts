@@ -5,7 +5,8 @@ import type { User } from '@/types';
 import { Timestamp } from 'firebase-admin/firestore';
 import { revalidatePath } from 'next/cache';
 
-const { dbAdmin, authAdmin } = await import('@/lib/firebase-admin');
+// Only dbAdmin is needed, authAdmin is removed for student creation
+const { dbAdmin } = await import('@/lib/firebase-admin');
 
 // Function to check if a user is an admin
 async function isAdmin(uid: string | undefined): Promise<boolean> {
@@ -39,6 +40,7 @@ export async function getManagedStudents(
       return { students: [] };
     }
 
+    // Updated to reflect that students don't have auth-related properties
     const students = snapshot.docs.map(docSnap => {
       const data = docSnap.data();
       return {
@@ -46,8 +48,6 @@ export async function getManagedStudents(
         email: data.email,
         name: data.name || 'Unnamed Student',
         avatarUrl: data.avatarURL,
-        mustChangePassword: data.mustChangePassword || false,
-        isMfaEnabled: data.isMfaEnabled || false,
         isAdmin: data.isAdmin || false,
       } as User;
     });
@@ -60,53 +60,42 @@ export async function getManagedStudents(
 }
 
 
-// Action to create a new student user
+// Action to create a new student user record in Firestore only
 export async function createStudent(
   adminId: string,
-  studentData: { name: string; email: string; password?: string }
+  studentData: { name: string; email: string; }
 ): Promise<{ success?: boolean; error?: string; studentId?: string }> {
   if (!(await isAdmin(adminId))) {
     return { error: 'Permission denied. Only admins can create students.' };
   }
 
-  const { name, email, password } = studentData;
+  const { name, email } = studentData;
   if (!name || !email) {
     return { error: 'Name and email are required to create a student.' };
   }
   
-  // A secure, random password. The user will be forced to change it.
-  const tempPassword = password || Math.random().toString(36).slice(-8);
-
   try {
-    // Create user in Firebase Auth
-    const userRecord = await authAdmin.createUser({
-      email,
-      password: tempPassword,
-      displayName: name,
-      emailVerified: true, 
-    });
+    // Generate a new document reference in Firestore to get an ID
+    const newStudentRef = dbAdmin.collection('users').doc();
     
-    // Create user document in Firestore
-    await dbAdmin.collection('users').doc(userRecord.uid).set({
+    // Create user document in Firestore. No Firebase Auth user is created.
+    await newStudentRef.set({
       name,
       email,
-      isAdmin: false,
-      mustChangePassword: true, // Force password change on first login
+      isAdmin: false, // Students are never admins
       createdAt: Timestamp.now(),
       avatarURL: '', // Default empty avatar
-      isMfaEnabled: false,
     });
     
     // Invalidate caches to show the new student in lists
     revalidatePath('/dashboard');
+    revalidatePath('/ehcp');
     
-    return { success: true, studentId: userRecord.uid };
+    return { success: true, studentId: newStudentRef.id };
   } catch (error: any) {
     console.error('[createStudent] Error:', error);
-    let errorMessage = 'Failed to create student.';
-    if (error.code === 'auth/email-already-exists') {
-        errorMessage = 'A user with this email address already exists.';
-    } else if (error.message) {
+    let errorMessage = 'Failed to create student record.';
+    if (error.message) {
         errorMessage = error.message;
     }
     return { error: errorMessage };
