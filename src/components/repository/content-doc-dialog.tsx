@@ -26,6 +26,7 @@ interface ContentDocDialogProps {
   onOpenChange: (open: boolean) => void;
   onSave: (doc: ContentDocument) => void; // Callback after successful save
   document?: ContentDocument | null; // For editing, not fully implemented yet
+  associatedUserId?: string; // To link doc to a student
 }
 
 const initialFormState = {
@@ -36,7 +37,7 @@ const initialFormState = {
   tags: '', // Comma-separated string
 };
 
-export function ContentDocDialog({ isOpen, onOpenChange, onSave, document }: ContentDocDialogProps) {
+export function ContentDocDialog({ isOpen, onOpenChange, onSave, document, associatedUserId }: ContentDocDialogProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -119,6 +120,9 @@ export function ContentDocDialog({ isOpen, onOpenChange, onSave, document }: Con
     const formDataPayload = new FormData();
     if (selectedFile) {
       formDataPayload.append('file', selectedFile);
+    }
+    if (associatedUserId) {
+        formDataPayload.append('associatedUserId', associatedUserId);
     }
     formDataPayload.append('name', formState.name.trim());
     formDataPayload.append('description', formState.description.trim());

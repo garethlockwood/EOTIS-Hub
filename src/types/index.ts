@@ -33,6 +33,7 @@ export interface TodoItem {
   id: string;
   text: string;
   completed: boolean;
+  studentId: string;
 }
 
 export interface UpcomingLesson {
@@ -42,6 +43,7 @@ export interface UpcomingLesson {
   time: string; // e.g., "10:00 AM - 11:00 AM"
   date: string; // e.g., "2024-07-28"
   meetingLink?: string;
+  studentId: string;
 }
 
 export interface UnpaidInvoice {
@@ -50,6 +52,7 @@ export interface UnpaidInvoice {
   clientName: string;
   amount: number;
   dueDate: string; // e.g., "2024-08-01"
+  studentId: string;
 }
 
 export interface ScheduledMeeting {
@@ -59,6 +62,7 @@ export interface ScheduledMeeting {
   date: string; // e.g., "2024-07-29"
   participants: string[];
   meetingLink?: string;
+  studentId: string;
 }
 
 export interface CalendarEvent {
@@ -71,6 +75,7 @@ export interface CalendarEvent {
   meetingLink?: string;
   description?: string;
   color?: string; // Optional color for the event
+  studentId?: string;
 }
 
 export interface StaffMember {
@@ -97,6 +102,7 @@ export interface FinancialDocument {
   amount?: number;
   status?: 'Paid' | 'Unpaid' | 'Overdue';
   uploaderUid?: string;
+  studentId: string;
 }
 
 export interface ContentDocument {
@@ -113,6 +119,7 @@ export interface ContentDocument {
   fileType: string;
   version: string;
   tags: string[];
+  associatedUserId?: string; // Optional: Link to a specific student
 }
 
 

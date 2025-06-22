@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -8,17 +9,20 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { PlusCircle, Search, Download, Edit, Trash2, Tag } from 'lucide-react';
+import { PlusCircle, Search, Download, Edit, Trash2, Tag, Loader2, UserX } from 'lucide-react';
 import { format } from 'date-fns';
 import { useAuth } from '@/hooks/use-auth';
 import { toast } from 'sonner';
 import type { ContentDocument } from '@/types';
 import { getContentDocuments } from './actions';
 import { ContentDocDialog } from '@/components/repository/content-doc-dialog';
+import { useStudent } from '@/hooks/use-student';
 
 export default function RepositoryPage() {
   const { user } = useAuth();
+  const { selectedStudent, isLoading: studentIsLoading } = useStudent();
   const [documents, setDocuments] = useState<ContentDocument[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'all' | ContentDocument['type']>('all');
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -26,18 +30,25 @@ export default function RepositoryPage() {
 
   useEffect(() => {
     const fetchDocs = async () => {
+      setIsLoading(true);
       const result = await getContentDocuments();
       if (result.error) {
         toast.error('Failed to load content documents');
+        setDocuments([]);
       } else {
         setDocuments(result.documents || []);
       }
+      setIsLoading(false);
     };
     fetchDocs();
   }, []);
 
   const filteredDocuments = useMemo(() => {
     return documents.filter(doc => {
+      // Show if doc is global OR if it matches the selected student
+      const matchesStudent = !doc.associatedUserId || doc.associatedUserId === selectedStudent?.id;
+      if (!matchesStudent) return false;
+
       const matchesType = filterType === 'all' || doc.type === filterType;
       const matchesSearch = 
         doc.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -45,7 +56,7 @@ export default function RepositoryPage() {
         (doc.tags && doc.tags.join(' ').toLowerCase().includes(searchTerm.toLowerCase()));
       return matchesType && matchesSearch;
     });
-  }, [documents, searchTerm, filterType]);
+  }, [documents, searchTerm, filterType, selectedStudent]);
 
   const handleSaveDoc = (doc: ContentDocument) => {
     toast.success('Document saved');
@@ -60,11 +71,96 @@ export default function RepositoryPage() {
     setIsFormOpen(false);
     setEditingDoc(null);
   };
+  
+  const renderContent = () => {
+    if (isLoading || studentIsLoading) {
+      return (
+        <div className="flex justify-center items-center h-64">
+          <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        </div>
+      );
+    }
+
+    // Admins need to select a student to see student-specific documents
+    if (!selectedStudent && user?.isAdmin) {
+       return (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center h-96 text-center">
+            <UserX className="h-16 w-16 text-muted-foreground mb-4" />
+            <h3 className="text-xl font-semibold">No Student Selected</h3>
+            <p className="text-muted-foreground">Please select a student to view their documents. Global documents are always visible.</p>
+          </CardContent>
+        </Card>
+      );
+    }
+
+    return (
+        <Card className="shadow-lg">
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Upload Date</TableHead>
+                  <TableHead>Description</TableHead>
+                  <TableHead>Tags</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredDocuments.length > 0 ? (
+                  filteredDocuments.map(doc => (
+                    <TableRow key={doc.id}>
+                      <TableCell className="font-medium">{doc.name}</TableCell>
+                      <TableCell><Badge variant="secondary">{doc.type}</Badge></TableCell>
+                      <TableCell>{format(new Date(doc.uploadDate), 'PPP')}</TableCell>
+                      <TableCell className="max-w-xs truncate text-sm text-muted-foreground">{doc.description || 'N/A'}</TableCell>
+                      <TableCell>
+                        {doc.tags && doc.tags.length > 0 ? (
+                          <div className="flex flex-wrap gap-1">
+                            {doc.tags.map(tag => <Badge key={tag} variant="outline" className="text-xs"><Tag className="h-3 w-3 mr-1"/>{tag}</Badge>)}
+                          </div>
+                        ) : 'N/A'}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="ghost" size="icon" onClick={() => {
+                          if (doc.fileUrl) {
+                            window.open(doc.fileUrl, '_blank');
+                          } else {
+                            toast.warning('File URL is missing');
+                          }
+                        }}>
+                          <Download className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => { setEditingDoc(doc); setIsFormOpen(true); }} disabled={!user?.isAdmin}>
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" disabled title="Delete (not implemented)" className="text-destructive hover:text-destructive">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={6} className="h-24 text-center">
+                      No documents found matching your criteria.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+    );
+  };
+
 
   return (
     <>
       <PageHeader title="Content Repository" description="Centralized place for lesson plans, reports, and other documents.">
-        <Button disabled={!user?.isAdmin} title={!user?.isAdmin ? "Admin rights required" : "Upload Document"} onClick={() => { setEditingDoc(null); setIsFormOpen(true); }}>
+        <Button disabled={!user?.isAdmin || !selectedStudent} title={!user?.isAdmin ? "Admin rights required" : (!selectedStudent ? "Select a student to upload a document" : "Upload Document")} onClick={() => { setEditingDoc(null); setIsFormOpen(true); }}>
           <PlusCircle className="mr-2 h-4 w-4" /> Upload Document
         </Button>
       </PageHeader>
@@ -95,70 +191,14 @@ export default function RepositoryPage() {
         </Select>
       </div>
 
-      <Card className="shadow-lg">
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Upload Date</TableHead>
-                <TableHead>Description</TableHead>
-                <TableHead>Tags</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredDocuments.length > 0 ? (
-                filteredDocuments.map(doc => (
-                  <TableRow key={doc.id}>
-                    <TableCell className="font-medium">{doc.name}</TableCell>
-                    <TableCell><Badge variant="secondary">{doc.type}</Badge></TableCell>
-                    <TableCell>{format(new Date(doc.uploadDate), 'PPP')}</TableCell>
-                    <TableCell className="max-w-xs truncate text-sm text-muted-foreground">{doc.description || 'N/A'}</TableCell>
-                    <TableCell>
-                      {doc.tags && doc.tags.length > 0 ? (
-                        <div className="flex flex-wrap gap-1">
-                          {doc.tags.map(tag => <Badge key={tag} variant="outline" className="text-xs"><Tag className="h-3 w-3 mr-1"/>{tag}</Badge>)}
-                        </div>
-                      ) : 'N/A'}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="ghost" size="icon" onClick={() => {
-                        if (doc.fileUrl) {
-                          window.open(doc.fileUrl, '_blank');
-                        } else {
-                          toast.warning('File URL is missing');
-                        }
-                      }}>
-                        <Download className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => { setEditingDoc(doc); setIsFormOpen(true); }}>
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" disabled title="Delete (not implemented)" className="text-destructive hover:text-destructive">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={6} className="h-24 text-center">
-                    No documents found.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+      {renderContent()}
 
       <ContentDocDialog 
         isOpen={isFormOpen} 
         onOpenChange={setIsFormOpen} 
         document={editingDoc} 
-        onSave={handleSaveDoc} 
+        onSave={handleSaveDoc}
+        associatedUserId={selectedStudent?.id}
       />
     </>
   );

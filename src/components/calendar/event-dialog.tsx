@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -25,6 +26,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 interface EventDialogProps {
   event?: CalendarEvent | null;
   date?: Date; // Pre-fill date for new event
+  studentId?: string | null; // Student to associate with new event
   isOpen?: boolean;
   onOpenChange?: (open: boolean) => void;
   onSave: (event: CalendarEvent) => void;
@@ -39,9 +41,10 @@ const initialEventState: Omit<CalendarEvent, 'id'> = {
   cost: 0,
   meetingLink: '',
   description: '',
+  studentId: undefined,
 };
 
-export function EventDialog({ event, date, isOpen, onOpenChange, onSave, trigger }: EventDialogProps) {
+export function EventDialog({ event, date, studentId, isOpen, onOpenChange, onSave, trigger }: EventDialogProps) {
   const [formData, setFormData] = useState<Omit<CalendarEvent, 'id'>>(initialEventState);
   const [open, setOpen] = useState(isOpen || false);
 
@@ -63,11 +66,15 @@ export function EventDialog({ event, date, isOpen, onOpenChange, onSave, trigger
         ...initialEventState,
         start: date,
         end: new Date(new Date(date).setHours(date.getHours() + 1)),
+        studentId: studentId || undefined,
       });
     } else {
-      setFormData(initialEventState);
+      setFormData({
+        ...initialEventState,
+        studentId: studentId || undefined,
+      });
     }
-  }, [event, date]);
+  }, [event, date, studentId]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -108,6 +115,7 @@ export function EventDialog({ event, date, isOpen, onOpenChange, onSave, trigger
       ...formData,
       id: event?.id || Date.now().toString(),
       color: event?.color || 'hsl(var(--primary))',
+      studentId: event?.studentId || studentId || undefined,
     };
     onSave(newEvent);
     if (onOpenChange) onOpenChange(false); else setOpen(false);
@@ -120,7 +128,18 @@ export function EventDialog({ event, date, isOpen, onOpenChange, onSave, trigger
       setOpen(newOpenState);
     }
     if (!newOpenState) {
-      setFormData(event || (date ? { ...initialEventState, start: date, end: new Date(new Date(date).setHours(date.getHours() + 1)) } : initialEventState)); // Reset form on close
+      // Reset form on close
+      const resetState = event ? {
+        ...event,
+        start: typeof event.start === 'string' ? parseISO(event.start) : event.start,
+        end: typeof event.end === 'string' ? parseISO(event.end) : event.end,
+      } : {
+        ...initialEventState,
+        start: date || new Date(),
+        end: date ? new Date(new Date(date).setHours(date.getHours() + 1)) : new Date(new Date().setHours(new Date().getHours() + 1)),
+        studentId: studentId || undefined,
+      };
+      setFormData(resetState);
     }
   };
 

@@ -1,3 +1,4 @@
+
 'use server';
 
 import { Timestamp } from 'firebase/firestore';
@@ -45,6 +46,7 @@ export async function getContentDocuments(): Promise<{ documents?: ContentDocume
         fileType: data.fileType,
         version: data.version,
         tags: data.tags,
+        associatedUserId: data.associatedUserId, // Include associatedUserId
       } as ContentDocument;
     });
     return { documents };
@@ -63,7 +65,8 @@ export async function addContentDocument(formData: FormData, actingAdminUserId: 
   const description = formData.get('description') as string | null;
   const type = formData.get('type') as 'LessonPlan' | 'Report' | 'Resource' | 'Invoice' | 'General' | null;
   const version = formData.get('version') as string | null;
-  const tagsRaw = formData.get('tags') as string | null; // comma-separated
+  const tagsRaw = formData.get('tags') as string | null;
+  const associatedUserId = formData.get('associatedUserId') as string | null;
 
   if (!file || !name || !type) {
     return { error: 'Missing required fields (file, name, or type).' };
@@ -91,7 +94,7 @@ export async function addContentDocument(formData: FormData, actingAdminUserId: 
     const uploaderName = uploaderDoc.exists ? (uploaderDoc.data()?.name || uploaderDoc.data()?.email || 'Admin') : 'Admin';
     const uploaderRole = uploaderDoc.exists ? (uploaderDoc.data()?.role || 'Admin') : 'Admin';
 
-    const newDocData = {
+    const newDocData: Omit<ContentDocument, 'uploadDate'> & { uploadDate: Timestamp } = {
       name,
       description: description || '',
       type,
@@ -99,13 +102,18 @@ export async function addContentDocument(formData: FormData, actingAdminUserId: 
       tags,
       fileUrl: downloadURL,
       storagePath,
-      fileType: file.type.includes('pdf') ? 'pdf' : 'docx',
+      fileType: file.type.includes('pdf') ? 'pdf' : (file.type.includes('word') ? 'docx' : 'other'),
       uploaderUid: actingAdminUserId,
       uploaderName,
       uploaderRole,
       uploadDate: Timestamp.now(),
       id: newDocRef.id,
     };
+    
+    if (associatedUserId) {
+        newDocData.associatedUserId = associatedUserId;
+    }
+
 
     await newDocRef.set(newDocData);
     revalidatePath('/repository');

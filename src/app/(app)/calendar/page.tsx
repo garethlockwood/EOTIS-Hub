@@ -10,7 +10,7 @@ import { EventDialog } from '@/components/calendar/event-dialog';
 import { PLACEHOLDER_CALENDAR_EVENTS } from '@/lib/constants';
 import type { CalendarEvent } from '@/types';
 import { format, isSameDay, parseISO, addDays, subDays, startOfWeek, endOfWeek, eachDayOfInterval, set, addMonths } from 'date-fns';
-import { PlusCircle, Edit3, Trash2, ZoomIn, ZoomOut, ChevronLeft, ChevronRight, CalendarIcon as TodayIcon } from 'lucide-react';
+import { PlusCircle, Edit3, Trash2, ZoomIn, ZoomOut, ChevronLeft, ChevronRight, CalendarIcon as TodayIcon, Loader2, UserX } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,9 +27,12 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { DayView } from '@/components/calendar/day-view';
 import { WeekView } from '@/components/calendar/week-view';
 import { useToast } from "@/hooks/use-toast";
-
+import { useStudent } from '@/hooks/use-student';
+import { useAuth } from '@/hooks/use-auth';
 
 export default function CalendarPage() {
+  const { user } = useAuth();
+  const { selectedStudent, isLoading: studentIsLoading } = useStudent();
   const [events, setEvents] = useState<CalendarEvent[]>(() =>
     PLACEHOLDER_CALENDAR_EVENTS.map(event => ({
       ...event,
@@ -47,6 +50,9 @@ export default function CalendarPage() {
 
   const currentWeekStart = useMemo(() => startOfWeek(selectedDate, { weekStartsOn: 1 }), [selectedDate]);
   const currentWeekEnd = useMemo(() => endOfWeek(selectedDate, { weekStartsOn: 1 }), [selectedDate]);
+  
+  const studentId = selectedStudent?.id;
+  const eventsForStudent = useMemo(() => events.filter(e => e.studentId === studentId), [events, studentId]);
 
   const viewTitle = useMemo(() => {
     if (currentView === 'month') return format(selectedDate, 'MMMM yyyy');
@@ -61,20 +67,24 @@ export default function CalendarPage() {
 
   const eventsForSelectedDayInMonthView = useMemo(() => {
     if (currentView !== 'month' || !selectedDate) return [];
-    return events.filter(event => isSameDay(event.start, selectedDate))
+    return eventsForStudent.filter(event => isSameDay(event.start, selectedDate))
                  .sort((a, b) => a.start.getTime() - b.start.getTime());
-  }, [events, selectedDate, currentView]);
+  }, [eventsForStudent, selectedDate, currentView]);
 
   const eventDateModifiers = useMemo(() => {
     return {
-      hasEvent: events.map(e => e.start),
+      hasEvent: eventsForStudent.map(e => e.start),
     };
-  }, [events]);
+  }, [eventsForStudent]);
   
   const openNewEventDialog = useCallback(() => {
+    if (!studentId) {
+      toast({ variant: 'destructive', title: 'No Student Selected', description: 'Please select a student before adding an event.' });
+      return;
+    }
     setEditingEvent(null);
     setIsEventDialogOpen(true);
-  }, []); 
+  }, [studentId, toast]); 
 
   const openEditEventDialog = useCallback((event: CalendarEvent) => {
     setEditingEvent({
@@ -87,31 +97,9 @@ export default function CalendarPage() {
 
   useEffect(() => setIsMounted(true), []);
 
-  if (!isMounted) {
-    return (
-      <>
-        <PageHeader title="Interactive Calendar" description="Manage your lessons, meetings, and events.">
-            <Button onClick={openNewEventDialog} disabled>
-            <PlusCircle className="mr-2 h-4 w-4" /> Add Event
-            </Button>
-        </PageHeader>
-        <div className="flex justify-center items-center flex-1 h-[calc(100vh-16rem)]">
-            <p>Loading Calendar...</p>
-        </div>
-      </>
-    );
-  }
-
-  const handleDateSelect = (date: Date | undefined) => {
-    if (date) {
-      setSelectedDate(date);
-    }
-  };
-  
   const handleMonthDateSelect = (date: Date | undefined) => {
     if (date) {
       setSelectedDate(date);
-      // Removed toast notification from here
     }
   };
 
@@ -159,21 +147,28 @@ export default function CalendarPage() {
     setCurrentView('day'); 
   };
 
-  const prevButtonTitle = currentView === 'day' ? "Previous Day" : currentView === 'week' ? "Previous Week" : "Previous Month";
-  const nextButtonTitle = currentView === 'day' ? "Next Day" : currentView === 'week' ? "Next Week" : "Next Month";
-  
+  const renderContent = () => {
+    if (studentIsLoading || !isMounted) {
+      return (
+        <div className="flex justify-center items-center flex-1 h-[calc(100vh-16rem)]">
+            <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        </div>
+      );
+    }
 
-  return (
-    <>
-      <PageHeader title="Interactive Calendar" description="Manage your lessons, meetings, and events.">
-        <Button onClick={openNewEventDialog}>
-          <PlusCircle className="mr-2 h-4 w-4" /> Add Event
-        </Button>
-      </PageHeader>
-
-      <div className="flex flex-col flex-1 h-[calc(100vh-14rem)] md:h-[calc(100vh-12rem)]">
+    if (!selectedStudent && user?.isAdmin) {
+       return (
+        <Card className="flex-1 flex flex-col items-center justify-center text-center p-8">
+            <UserX className="h-16 w-16 text-muted-foreground mb-4" />
+            <h3 className="text-xl font-semibold">No Student Selected</h3>
+            <p className="text-muted-foreground">Please select a student to view their calendar.</p>
+        </Card>
+      );
+    }
+    
+    return (
         <Card className="flex-1 flex flex-col shadow-lg overflow-hidden">
-          <Tabs value={currentView} onValueChange={(v) => setCurrentView(v as 'month' | 'week' | 'day')} className="flex-1 flex flex-col">
+            <Tabs value={currentView} onValueChange={(v) => setCurrentView(v as 'month' | 'week' | 'day')} className="flex-1 flex flex-col">
             <div className="flex items-center p-2 border-b flex-wrap gap-2">
               <TabsList className="mr-auto">
                 <TabsTrigger value="month">Month</TabsTrigger>
@@ -182,13 +177,13 @@ export default function CalendarPage() {
               </TabsList>
 
               <div className="flex items-center gap-1 ml-auto md:ml-0">
-                 <Button variant="outline" size="icon" onClick={() => navigateDate(-1)} title={prevButtonTitle}>
+                 <Button variant="outline" size="icon" onClick={() => navigateDate(-1)} title={currentView === 'day' ? "Previous Day" : currentView === 'week' ? "Previous Week" : "Previous Month"}>
                     <ChevronLeft className="h-4 w-4" />
                 </Button>
                 <Button variant="outline" size="sm" onClick={goToToday} className="hidden sm:inline-flex items-center">
                     <TodayIcon className="mr-1 h-4 w-4" /> Today
                 </Button>
-                 <Button variant="outline" size="icon" onClick={() => navigateDate(1)} title={nextButtonTitle}>
+                 <Button variant="outline" size="icon" onClick={() => navigateDate(1)} title={currentView === 'day' ? "Next Day" : currentView === 'week' ? "Next Week" : "Next Month"}>
                     <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
@@ -287,7 +282,7 @@ export default function CalendarPage() {
             <TabsContent value="week" className="flex-1 overflow-hidden p-0">
               <WeekView
                 selectedDate={selectedDate}
-                events={events}
+                events={eventsForStudent}
                 zoomLevel={zoomLevel}
                 onNavigateDate={setSelectedDate}
                 onSelectDate={handleSelectDateFromView}
@@ -298,7 +293,7 @@ export default function CalendarPage() {
             <TabsContent value="day" className="flex-1 overflow-hidden p-0">
               <DayView
                 selectedDate={selectedDate}
-                events={events}
+                events={eventsForStudent}
                 zoomLevel={zoomLevel}
                 onNavigateDate={setSelectedDate}
                 onEventClick={openEditEventDialog}
@@ -307,11 +302,25 @@ export default function CalendarPage() {
             </TabsContent>
           </Tabs>
         </Card>
+    );
+  };
+
+  return (
+    <>
+      <PageHeader title="Interactive Calendar" description="Manage your lessons, meetings, and events.">
+        <Button onClick={openNewEventDialog} disabled={!selectedStudent}>
+          <PlusCircle className="mr-2 h-4 w-4" /> Add Event
+        </Button>
+      </PageHeader>
+
+      <div className="flex flex-col flex-1 h-[calc(100vh-14rem)] md:h-[calc(100vh-12rem)]">
+        {renderContent()}
       </div>
 
       <EventDialog
         event={editingEvent}
         date={editingEvent ? undefined : selectedDate}
+        studentId={studentId}
         isOpen={isEventDialogOpen}
         onOpenChange={setIsEventDialogOpen}
         onSave={handleSaveEvent}
@@ -319,4 +328,3 @@ export default function CalendarPage() {
     </>
   );
 }
-    
