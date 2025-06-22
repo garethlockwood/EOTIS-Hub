@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -30,13 +31,15 @@ export function StudentSelector() {
             onValueChange={handleValueChange}
             disabled={isLoading || students.length === 0}
         >
-        <SelectTrigger className="w-[180px] md:w-[220px] lg:w-[250px]">
-            <SelectValue placeholder={isLoading ? "Loading..." : (error ? "Error" : (students.length === 0 ? "No Students" : "Select a student"))}>
+        <SelectTrigger className="w-[180px] md:w-[220px] lg:w-[250px]" title={error ?? undefined}>
+            <SelectValue placeholder="Select a student">
                  {isLoading ? (
                     <div className="flex items-center gap-2">
                         <Loader2 className="h-4 w-4 animate-spin"/>
-                        <span>Loading...</span>
+                        <span className="truncate">Loading...</span>
                     </div>
+                ) : error ? (
+                    <span className="text-destructive truncate">{error}</span>
                 ) : selectedStudent ? (
                     <div className="flex items-center gap-2">
                         <Avatar className="h-6 w-6">
@@ -46,7 +49,7 @@ export function StudentSelector() {
                         <span className="truncate">{selectedStudent.name}</span>
                     </div>
                 ) : (
-                    <span>{error ? "Error loading" : "Select Student"}</span>
+                    <span className="text-muted-foreground">{students.length > 0 ? "Select Student" : "No Students"}</span>
                 )}
             </SelectValue>
         </SelectTrigger>

@@ -57,6 +57,7 @@ export const StudentProvider = ({ children }: { children: React.ReactNode }) => 
       .then(result => {
         if (result.students) {
           setStudents(result.students);
+          setError(null); // Clear previous errors on success
           
           let idToSet = selectedStudentId;
 
@@ -94,7 +95,7 @@ export const StudentProvider = ({ children }: { children: React.ReactNode }) => 
       .finally(() => {
         setIsLoading(false);
       });
-  }, [adminUser, authIsLoading, refetchTrigger]);
+  }, [adminUser, authIsLoading, refetchTrigger, selectedStudentId, studentIdToSelectAfterFetch]);
 
   const handleSetSelectedStudent = useCallback((student: Student | null) => {
     const newId = student ? student.id : null;
