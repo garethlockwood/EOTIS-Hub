@@ -29,7 +29,7 @@ export function StudentSelector() {
        <Select
             value={selectedStudent?.id ?? ''}
             onValueChange={handleValueChange}
-            disabled={isLoading || students.length === 0}
+            disabled={isLoading}
         >
         <SelectTrigger className="w-[180px] md:w-[220px] lg:w-[250px]" title={error ?? undefined}>
             <SelectValue placeholder="Select a student">
@@ -54,17 +54,23 @@ export function StudentSelector() {
             </SelectValue>
         </SelectTrigger>
         <SelectContent>
-            {students.map(student => (
-                <SelectItem key={student.id} value={student.id}>
-                     <div className="flex items-center gap-2">
-                        <Avatar className="h-6 w-6">
-                            <AvatarImage src={student.avatarUrl || undefined} alt={student.name || "Student"} />
-                            <AvatarFallback>{student.name ? student.name.substring(0, 2).toUpperCase() : 'S'}</AvatarFallback>
-                        </Avatar>
-                        <span className="truncate">{student.name}</span>
-                    </div>
-                </SelectItem>
-            ))}
+            {students.length > 0 ? (
+                students.map(student => (
+                    <SelectItem key={student.id} value={student.id}>
+                         <div className="flex items-center gap-2">
+                            <Avatar className="h-6 w-6">
+                                <AvatarImage src={student.avatarUrl || undefined} alt={student.name || "Student"} />
+                                <AvatarFallback>{student.name ? student.name.substring(0, 2).toUpperCase() : 'S'}</AvatarFallback>
+                            </Avatar>
+                            <span className="truncate">{student.name}</span>
+                        </div>
+                    </SelectItem>
+                ))
+            ) : (
+                <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                    No students found.
+                </div>
+            )}
         </SelectContent>
        </Select>
     </div>
