@@ -62,14 +62,15 @@ export const StudentProvider = ({ children }: { children: React.ReactNode }) => 
     getManagedStudents(adminUser.id)
       .then(result => {
         if (result.students) {
-          const sortedStudents = result.students.sort((a, b) => a.name.localeCompare(b.name));
-          setStudents(sortedStudents);
+          // No need to sort here anymore, Firestore does it.
+          const fetchedStudents = result.students;
+          setStudents(fetchedStudents);
           setError(null);
           
-          const currentIdIsValid = sortedStudents.some(s => s.id === selectedStudentId);
+          const currentIdIsValid = fetchedStudents.some(s => s.id === selectedStudentId);
 
           if (!currentIdIsValid) {
-            const newId = sortedStudents.length > 0 ? sortedStudents[0].id : null;
+            const newId = fetchedStudents.length > 0 ? fetchedStudents[0].id : null;
             setSelectedStudentId(newId);
             if (typeof window !== 'undefined') {
               if (newId) {
