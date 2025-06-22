@@ -18,10 +18,11 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import Image from 'next/image'; // Keep for QR code display
 import { useToast } from '@/hooks/use-toast';
-import type { User } from '@/types'; // Keep your app's User type
+import type { User, Currency } from '@/types'; // Keep your app's User type
 import { storage, auth } from '@/lib/firebase'; // Import auth for currentUser
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { useSearchParams } from 'next/navigation';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const profileSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters.').optional(),
@@ -49,7 +50,7 @@ type MfaCodeFormValues = z.infer<typeof mfaCodeSchema>;
 
 
 function ProfilePageContent() {
-  const { user, updateProfile, changePassword, theme, setTheme, isLoading: authLoading, enableMfa, confirmMfa, disableMfa } = useAuth();
+  const { user, updateProfile, changePassword, theme, setTheme, currency, setCurrency, isLoading: authLoading, enableMfa, confirmMfa, disableMfa } = useAuth();
   const { toast } = useToast();
   const searchParams = useSearchParams();
   
@@ -432,6 +433,22 @@ function ProfilePageContent() {
                   aria-label="Toggle dark mode"
                 />
               </div>
+               <div className="flex items-center justify-between p-4 border rounded-lg">
+                <div>
+                  <Label htmlFor="currency-select" className="font-medium">Currency</Label>
+                  <p className="text-sm text-muted-foreground">Choose the default currency for financial entries.</p>
+                </div>
+                <Select value={currency} onValueChange={(value: Currency) => setCurrency(value)}>
+                  <SelectTrigger id="currency-select" className="w-[120px]">
+                    <SelectValue placeholder="Select currency" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="GBP">GBP (£)</SelectItem>
+                    <SelectItem value="USD">USD ($)</SelectItem>
+                    <SelectItem value="EUR">EUR (€)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -448,4 +465,3 @@ export default function ProfilePage() {
     </Suspense>
   )
 }
-

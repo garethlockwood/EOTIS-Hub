@@ -16,9 +16,10 @@ import Link from 'next/link';
 import { useAuth } from '@/hooks/use-auth';
 import { useStudent } from '@/hooks/use-student';
 import { AddStudentDialog } from '@/components/students/add-student-dialog';
+import { formatCurrency } from '@/lib/utils';
 
 export default function DashboardPage() {
-  const { user } = useAuth();
+  const { user, currency } = useAuth();
   const { selectedStudent, addAndSelectStudent, isLoading: studentIsLoading } = useStudent();
   const [todos, setTodos] = useState<TodoItem[]>(PLACEHOLDER_TODOS);
   const [newTodo, setNewTodo] = useState('');
@@ -81,7 +82,7 @@ export default function DashboardPage() {
       <>
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-6">
           <StatCard title="Upcoming Lessons" value={lessonsForStudent.length} icon={CalendarClock} description="Next 7 days" />
-          <StatCard title="Unpaid Invoices" value={invoicesForStudent.length} icon={FileText} description={`Total: $${invoicesForStudent.reduce((sum, inv) => sum + inv.amount, 0)}`} />
+          <StatCard title="Unpaid Invoices" value={invoicesForStudent.length} icon={FileText} description={`Total: ${formatCurrency(invoicesForStudent.reduce((sum, inv) => sum + inv.amount, 0), currency)}`} />
           <StatCard title="Scheduled Meetings" value={meetingsForStudent.length} icon={Users2} description="Next 7 days" />
           <StatCard title="Pending Todos" value={todosForStudent.filter(t => !t.completed).length} icon={ListChecks} />
         </div>

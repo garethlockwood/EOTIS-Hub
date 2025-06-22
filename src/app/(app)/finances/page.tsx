@@ -14,11 +14,12 @@ import { PlusCircle, Search, Download, Edit, Trash2, Loader2, UserX } from 'luci
 import { format } from 'date-fns';
 import { useStudent } from '@/hooks/use-student';
 import { useAuth } from '@/hooks/use-auth';
+import { formatCurrency } from '@/lib/utils';
 // Placeholder for Add/Edit Financial Document Dialog (future implementation)
 // import { FinancialDocDialog } from '@/components/finances/financial-doc-dialog';
 
 export default function FinancesPage() {
-  const { user } = useAuth();
+  const { user, currency } = useAuth();
   const { selectedStudent, isLoading: studentIsLoading } = useStudent();
   const [documents, setDocuments] = useState<FinancialDocument[]>(PLACEHOLDER_FINANCIAL_DOCS);
   const [searchTerm, setSearchTerm] = useState('');
@@ -97,7 +98,7 @@ export default function FinancesPage() {
                     <TableCell className="font-medium">{doc.name}</TableCell>
                     <TableCell>{doc.type}</TableCell>
                     <TableCell>{format(new Date(doc.uploadDate), 'PPP')}</TableCell>
-                    <TableCell>{doc.amount ? `$${doc.amount.toFixed(2)}` : 'N/A'}</TableCell>
+                    <TableCell>{doc.amount ? formatCurrency(doc.amount, currency) : 'N/A'}</TableCell>
                     <TableCell>
                       {doc.status ? (
                         <Badge variant={getStatusBadgeVariant(doc.status)}>{doc.status}</Badge>

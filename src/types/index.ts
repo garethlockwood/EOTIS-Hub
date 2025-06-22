@@ -1,6 +1,8 @@
 
 import type { LucideIcon } from 'lucide-react';
 
+export type Currency = 'USD' | 'GBP' | 'EUR';
+
 export interface NavItem {
   title: string;
   href: string;

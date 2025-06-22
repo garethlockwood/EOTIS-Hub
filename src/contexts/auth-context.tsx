@@ -8,7 +8,7 @@
 // !! The current implementation toggles a flag in Firestore and uses a placeholder QR.
 // !! AUTHENTICATION IS NOW REAL (Firebase Auth).
 
-import type { User } from '@/types';
+import type { User, Currency } from '@/types';
 import React, { createContext, useState, useEffect, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
@@ -44,6 +44,8 @@ interface AuthContextType {
   disableMfa: () => Promise<void>;
   theme: 'light' | 'dark';
   setTheme: (theme: 'light' | 'dark') => void;
+  currency: Currency;
+  setCurrency: (currency: Currency) => void;
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -52,6 +54,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [theme, setThemeState] = useState<'light' | 'dark'>('light');
+  const [currency, setCurrencyState] = useState<Currency>('GBP');
   const router = useRouter();
   const pathname = usePathname();
   const { toast } = useToast();
@@ -113,6 +116,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
       setThemeState('dark');
       document.documentElement.classList.add('dark');
+    }
+
+    const storedCurrency = localStorage.getItem('currency') as Currency | null;
+    if (storedCurrency) {
+      setCurrencyState(storedCurrency);
     }
     
     return () => unsubscribe();
@@ -299,6 +307,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     localStorage.setItem('theme', newTheme);
     document.documentElement.classList.toggle('dark', newTheme === 'dark');
   }, []);
+  
+  const setCurrency = useCallback((newCurrency: Currency) => {
+    setCurrencyState(newCurrency);
+    localStorage.setItem('currency', newCurrency);
+    toast({ title: "Currency Updated", description: `Currency set to ${newCurrency}.` });
+  }, [toast]);
 
   useEffect(() => {
     if (isLoading) return;
@@ -323,7 +337,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, [user, isLoading, router, pathname]);
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, logout, updateProfile, changePassword, forceChangePassword, sendPasswordResetEmail, confirmPasswordReset, enableMfa, confirmMfa, disableMfa, theme, setTheme }}>
+    <AuthContext.Provider value={{ user, isLoading, login, logout, updateProfile, changePassword, forceChangePassword, sendPasswordResetEmail, confirmPasswordReset, enableMfa, confirmMfa, disableMfa, theme, setTheme, currency, setCurrency }}>
       {children}
     </AuthContext.Provider>
   );

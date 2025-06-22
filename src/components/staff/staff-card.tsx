@@ -1,14 +1,18 @@
+
 import type { StaffMember } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { DollarSign, Mail, Phone, BookOpen, Briefcase } from 'lucide-react';
+import { Mail, Phone, BookOpen, Briefcase } from 'lucide-react';
+import { useAuth } from '@/hooks/use-auth';
+import { getCurrencySymbol } from '@/lib/utils';
 
 interface StaffCardProps {
   member: StaffMember;
 }
 
 export function StaffCard({ member }: StaffCardProps) {
+  const { currency } = useAuth();
   const initials = member.name.split(' ').map(n => n[0]).join('').toUpperCase();
 
   return (
@@ -25,7 +29,7 @@ export function StaffCard({ member }: StaffCardProps) {
         </Badge>
         {member.type === 'Tutor' && member.hourlyRate && (
           <div className="flex items-center text-sm text-muted-foreground mt-1">
-            <DollarSign className="h-4 w-4 mr-1" /> ${member.hourlyRate}/hr
+            <span className="font-sans font-semibold">{getCurrencySymbol(currency)}</span>{member.hourlyRate}/hr
           </div>
         )}
          {member.type === 'Professional' && member.specialty && (

@@ -16,12 +16,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon, DollarSign } from 'lucide-react';
+import { CalendarIcon } from 'lucide-react';
 import { Calendar as ShadCalendar } from '@/components/ui/calendar';
 import { format, parseISO } from 'date-fns';
 import type { CalendarEvent } from '@/types';
 import { TUTOR_NAMES } from '@/lib/constants';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useAuth } from '@/hooks/use-auth';
+import { getCurrencySymbol } from '@/lib/utils';
 
 interface EventDialogProps {
   event?: CalendarEvent | null;
@@ -45,6 +47,7 @@ const initialEventState: Omit<CalendarEvent, 'id'> = {
 };
 
 export function EventDialog({ event, date, studentId, isOpen, onOpenChange, onSave, trigger }: EventDialogProps) {
+  const { currency } = useAuth();
   const [formData, setFormData] = useState<Omit<CalendarEvent, 'id'>>(initialEventState);
   const [open, setOpen] = useState(isOpen || false);
 
@@ -211,9 +214,9 @@ export function EventDialog({ event, date, studentId, isOpen, onOpenChange, onSa
           </div>
 
           <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="cost" className="text-right">Cost ($)</Label>
+            <Label htmlFor="cost" className="text-right">Cost</Label>
             <div className="relative col-span-3">
-              <DollarSign className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+               <span className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground">{getCurrencySymbol(currency)}</span>
               <Input id="cost" name="cost" type="number" value={formData.cost} onChange={handleInputChange} className="pl-8" />
             </div>
           </div>
