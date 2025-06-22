@@ -1,11 +1,10 @@
 
 'use server';
 
-import type { User } from '@/types';
+import type { Student } from '@/types';
 import { Timestamp } from 'firebase-admin/firestore';
 import { revalidatePath } from 'next/cache';
 
-// Only dbAdmin is needed, authAdmin is removed for student creation
 const { dbAdmin } = await import('@/lib/firebase-admin');
 
 // Function to check if a user is an admin
@@ -21,18 +20,18 @@ async function isAdmin(uid: string | undefined): Promise<boolean> {
   }
 }
 
-// Fetches all non-admin users (i.e., students) if the requesting user is an admin
+// Fetches all students managed by a specific admin
 export async function getManagedStudents(
   adminId: string
-): Promise<{ students?: User[]; error?: string }> {
+): Promise<{ students?: Student[]; error?: string }> {
   if (!(await isAdmin(adminId))) {
     return { error: 'Permission denied. Only admins can view the student list.' };
   }
 
   try {
     const snapshot = await dbAdmin
-      .collection('users')
-      .where('managedBy', '==', adminId) // Query by the admin who manages the student
+      .collection('students') // Query the 'students' collection
+      .where('managedBy', '==', adminId)
       .orderBy('name', 'asc')
       .get();
 
@@ -40,17 +39,17 @@ export async function getManagedStudents(
       return { students: [] };
     }
 
-    // Updated to reflect that students don't have auth-related properties
     const students = snapshot.docs.map(docSnap => {
       const data = docSnap.data();
+      const createdAt = data.createdAt as Timestamp;
       return {
         id: docSnap.id,
         email: data.email,
         name: data.name || 'Unnamed Student',
         avatarUrl: data.avatarURL,
-        isAdmin: data.isAdmin || false,
         managedBy: data.managedBy,
-      } as User;
+        createdAt: createdAt.toDate().toISOString(),
+      } as Student;
     });
 
     return { students };
@@ -61,7 +60,7 @@ export async function getManagedStudents(
 }
 
 
-// Action to create a new student user record in Firestore only
+// Action to create a new student record in the 'students' collection
 export async function createStudent(
   adminId: string,
   studentData: { name: string; email: string; }
@@ -76,14 +75,13 @@ export async function createStudent(
   }
   
   try {
-    // Generate a new document reference in Firestore to get an ID
-    const newStudentRef = dbAdmin.collection('users').doc();
+    // Generate a new document reference in the 'students' collection
+    const newStudentRef = dbAdmin.collection('students').doc();
     
-    // Create user document in Firestore. No Firebase Auth user is created.
+    // Create the student document in the 'students' collection
     await newStudentRef.set({
       name,
       email,
-      isAdmin: false, // Students are never admins
       createdAt: Timestamp.now(),
       avatarURL: '', // Default empty avatar
       managedBy: adminId, // Link the student to the creating admin

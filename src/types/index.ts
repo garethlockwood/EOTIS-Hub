@@ -17,8 +17,17 @@ export interface User {
   isMfaEnabled?: boolean; // Custom, from Firestore
   mustChangePassword?: boolean; // Custom, from Firestore
   isAdmin?: boolean; // Custom, from Firestore
-  managedBy?: string; // UID of the admin managing this user
 }
+
+export interface Student {
+  id: string; // Document ID from 'students' collection
+  name: string;
+  email: string;
+  avatarUrl?: string | null;
+  managedBy: string; // Admin UID
+  createdAt?: string; // ISO string from Timestamp
+}
+
 
 export interface TodoItem {
   id: string;
@@ -27,7 +36,7 @@ export interface TodoItem {
 }
 
 export interface UpcomingLesson {
-  id: string;
+  id:string;
   subject: string;
   tutor: string;
   time: string; // e.g., "10:00 AM - 11:00 AM"

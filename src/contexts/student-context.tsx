@@ -2,14 +2,14 @@
 'use client';
 
 import React, { createContext, useState, useEffect, useCallback, useMemo } from 'react';
-import type { User } from '@/types';
+import type { Student } from '@/types';
 import { useAuth } from '@/hooks/use-auth';
 import { getManagedStudents } from '@/app/(app)/students/actions';
 
 interface StudentContextType {
-  students: User[];
-  selectedStudent: User | null;
-  setSelectedStudent: (student: User | null) => void;
+  students: Student[];
+  selectedStudent: Student | null;
+  setSelectedStudent: (student: Student | null) => void;
   isLoading: boolean;
   error?: string | null;
   refreshStudents: () => void;
@@ -20,7 +20,7 @@ export const StudentContext = createContext<StudentContextType | undefined>(unde
 
 export const StudentProvider = ({ children }: { children: React.ReactNode }) => {
   const { user: adminUser, isLoading: authIsLoading } = useAuth();
-  const [students, setStudents] = useState<User[]>([]);
+  const [students, setStudents] = useState<Student[]>([]);
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('selectedStudentId');
@@ -96,7 +96,7 @@ export const StudentProvider = ({ children }: { children: React.ReactNode }) => 
       });
   }, [adminUser, authIsLoading, refetchTrigger]);
 
-  const handleSetSelectedStudent = useCallback((student: User | null) => {
+  const handleSetSelectedStudent = useCallback((student: Student | null) => {
     const newId = student ? student.id : null;
     setSelectedStudentId(newId);
     if (newId) {
