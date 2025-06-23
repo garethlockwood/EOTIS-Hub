@@ -93,9 +93,6 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
       return <div className="flex h-screen w-screen items-center justify-center"><Loader2 className="h-12 w-12 animate-pulse text-primary" /></div>; 
   }
 
-  const pageTitle = NAV_ITEMS.find(item => pathname.startsWith(item.href))?.title || 
-                    (pathname.startsWith('/profile') ? 'My Profile' : 'EOTIS Hub');
-
   return (
     <div className="flex min-h-screen w-full bg-background">
       <aside className={cn(
@@ -191,11 +188,11 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
             </SheetContent>
           </Sheet>
           
-          <div className="hidden md:block font-headline text-lg font-semibold">
-            {pageTitle}
+          <div className="flex-1">
+            {/* The page title was here and has been removed. */}
           </div>
 
-          <div className="ml-auto flex items-center gap-4">
+          <div className="flex items-center gap-4">
              {user?.isAdmin && <StudentSelector />}
             <Button variant="ghost" size="icon" className="rounded-full">
               <Bell className="h-5 w-5" />
