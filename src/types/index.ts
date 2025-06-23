@@ -78,6 +78,7 @@ export interface CalendarEvent {
   meetingLink?: string;
   description?: string;
   color?: string;
+  textColor?: string;
   studentId?: string;
   createdAt?: string;
   updatedAt?: string;

@@ -22,3 +22,19 @@ export function getCurrencySymbol(currency: Currency): string {
   };
   return symbols[currency];
 }
+
+export function getContrastingTextColor(hexColor: string): 'black' | 'white' {
+    if (!hexColor) return 'black';
+
+    const color = hexColor.charAt(0) === '#' ? hexColor.substring(1, 7) : hexColor;
+    if (color.length !== 6) return 'black';
+
+    const r = parseInt(color.substring(0, 2), 16);
+    const g = parseInt(color.substring(2, 4), 16);
+    const b = parseInt(color.substring(4, 6), 16);
+    
+    // Formula from http://www.w3.org/TR/AERT#color-contrast
+    const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
+    
+    return (yiq >= 150) ? 'black' : 'white';
+}

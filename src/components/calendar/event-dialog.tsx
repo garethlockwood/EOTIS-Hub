@@ -34,7 +34,7 @@ import { format, parseISO, startOfDay, endOfDay, setHours, setMinutes, getHours,
 import type { CalendarEvent } from '@/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/hooks/use-auth';
-import { getCurrencySymbol } from '@/lib/utils';
+import { getCurrencySymbol, getContrastingTextColor } from '@/lib/utils';
 import { getTutorNames } from '@/app/(app)/staff/actions';
 import { Trash2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -156,14 +156,16 @@ export function EventDialog({ event, studentId, isOpen, onOpenChange, onSave, on
 
 
   const onSubmit: SubmitHandler<EventFormValues> = (data) => {
+    const textColor = data.color ? getContrastingTextColor(data.color) : undefined;
     const submissionData = {
       ...event,
       ...data,
       id: event?.id,
       studentId,
       tutorName: data.tutorName?.trim() || '',
+      textColor,
     };
-    onSave(submissionData);
+    onSave(submissionData as Omit<CalendarEvent, 'id'> & { id?: string });
   };
   
   return (
