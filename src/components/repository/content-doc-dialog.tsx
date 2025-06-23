@@ -250,7 +250,7 @@ export function ContentDocDialog({ isOpen, onOpenChange, onSave, document, assoc
               <SelectTrigger className="col-span-3">
                 <SelectValue placeholder="Select document type" />
               </SelectTrigger>
-              <SelectContent onInteractOutside={(e) => e.preventDefault()}>
+              <SelectContent onPointerDownOutside={(e) => e.preventDefault()}>
                 {docTypes.map((docType) => (
                   <div key={docType.id} className="flex items-center justify-between pr-2 relative">
                     <SelectItem value={docType.name} className="flex-grow pr-8">{docType.name}</SelectItem>
