@@ -212,11 +212,11 @@ export function EventDialog({ event, date, studentId, isOpen, onOpenChange, onSa
                         <span className="text-2xl font-bold pb-2">:</span>
                         {/* Minutes */}
                         <div className="flex flex-col items-center gap-1">
-                            <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleTimeAdjust('start', 'minutes', 15)} aria-label="Increase start minute">
+                            <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleTimeAdjust('start', 'minutes', 5)} aria-label="Increase start minute">
                                 <ChevronUp className="h-4 w-4" />
                             </Button>
                             <span className="text-xl font-mono w-10 text-center" aria-label="Start minute">{format(formData.start, 'mm')}</span>
-                            <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleTimeAdjust('start', 'minutes', -15)} aria-label="Decrease start minute">
+                            <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleTimeAdjust('start', 'minutes', -5)} aria-label="Decrease start minute">
                                 <ChevronDown className="h-4 w-4" />
                             </Button>
                         </div>
@@ -244,11 +244,11 @@ export function EventDialog({ event, date, studentId, isOpen, onOpenChange, onSa
                         <span className="text-2xl font-bold pb-2">:</span>
                         {/* Minutes */}
                         <div className="flex flex-col items-center gap-1">
-                            <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleTimeAdjust('end', 'minutes', 15)} aria-label="Increase end minute">
+                            <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleTimeAdjust('end', 'minutes', 5)} aria-label="Increase end minute">
                                 <ChevronUp className="h-4 w-4" />
                             </Button>
                             <span className="text-xl font-mono w-10 text-center" aria-label="End minute">{format(formData.end, 'mm')}</span>
-                            <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleTimeAdjust('end', 'minutes', -15)} aria-label="Decrease end minute">
+                            <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleTimeAdjust('end', 'minutes', -5)} aria-label="Decrease end minute">
                                 <ChevronDown className="h-4 w-4" />
                             </Button>
                         </div>
