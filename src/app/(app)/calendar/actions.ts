@@ -1,3 +1,4 @@
+
 'use server';
 
 import type { CalendarEvent } from '@/types';
@@ -26,13 +27,22 @@ export async function getCalendarEvents(
 
     const events = snapshot.docs.map(docSnap => {
       const data = docSnap.data();
-      return {
+      // Explicitly construct the event object and convert all timestamps
+      const event: CalendarEvent = {
         id: docSnap.id,
-        ...data,
-        // Convert Firestore Timestamps to ISO strings for client-side compatibility
+        title: data.title,
+        tutorName: data.tutorName,
+        cost: data.cost,
+        meetingLink: data.meetingLink,
+        description: data.description,
+        color: data.color,
+        studentId: data.studentId,
         start: (data.start as Timestamp).toDate().toISOString(),
         end: (data.end as Timestamp).toDate().toISOString(),
-      } as CalendarEvent;
+        createdAt: data.createdAt ? (data.createdAt as Timestamp).toDate().toISOString() : undefined,
+        updatedAt: data.updatedAt ? (data.updatedAt as Timestamp).toDate().toISOString() : undefined,
+      };
+      return event;
     });
 
     return { events };
@@ -82,12 +92,21 @@ export async function saveCalendarEvent(
             return { error: 'Failed to retrieve saved event.' };
         }
         
+        // Explicitly construct the returned event and convert all timestamps
         const returnedEvent: CalendarEvent = {
             id: eventRef.id,
-            ...savedData,
+            title: savedData.title,
+            tutorName: savedData.tutorName,
+            cost: savedData.cost,
+            meetingLink: savedData.meetingLink,
+            description: savedData.description,
+            color: savedData.color,
+            studentId: savedData.studentId,
             start: (savedData.start as Timestamp).toDate().toISOString(),
             end: (savedData.end as Timestamp).toDate().toISOString(),
-        } as CalendarEvent;
+            createdAt: savedData.createdAt ? (savedData.createdAt as Timestamp).toDate().toISOString() : undefined,
+            updatedAt: savedData.updatedAt ? (savedData.updatedAt as Timestamp).toDate().toISOString() : undefined,
+        };
 
         return { success: true, event: returnedEvent };
 
