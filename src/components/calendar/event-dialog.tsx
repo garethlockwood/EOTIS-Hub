@@ -16,18 +16,15 @@ import {
 } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Calendar as ShadCalendar } from '@/components/ui/calendar';
 import { Checkbox } from '@/components/ui/checkbox';
-import { format, parseISO, addHours, addMinutes, startOfDay, endOfDay, differenceInDays } from 'date-fns';
+import { format, parseISO, startOfDay, endOfDay, setHours, setMinutes, getHours, getMinutes, differenceInMilliseconds } from 'date-fns';
 import type { CalendarEvent } from '@/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/hooks/use-auth';
 import { getCurrencySymbol } from '@/lib/utils';
 import { getTutorNames } from '@/app/(app)/staff/actions';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { ChevronUp, ChevronDown } from 'lucide-react';
 
 const eventFormSchema = z.object({
   title: z.string().min(1, 'Title is required.'),
@@ -59,19 +56,12 @@ export function EventDialog({ event, studentId, isOpen, onOpenChange, onSave }: 
 
   const form = useForm<EventFormValues>({
     resolver: zodResolver(eventFormSchema),
-    defaultValues: {
-      title: '',
-      allDay: false,
-      start: new Date(),
-      end: addHours(new Date(), 1),
-      tutorName: '',
-      cost: 0,
-      meetingLink: '',
-      description: '',
-    },
   });
 
-  const isAllDay = form.watch('allDay');
+  const { watch, setValue, reset } = form;
+  const isAllDay = watch('allDay');
+  const startDate = watch('start');
+  const endDate = watch('end');
 
   useEffect(() => {
     getTutorNames().then(result => {
@@ -82,10 +72,9 @@ export function EventDialog({ event, studentId, isOpen, onOpenChange, onSave }: 
   }, []);
   
   useEffect(() => {
-    if (isOpen) {
-      if (event) { // Handles both new (with empty id) and existing events
-        form.reset({
-          title: event.title,
+    if (isOpen && event) {
+        reset({
+          title: event.title || '',
           allDay: event.allDay || false,
           start: typeof event.start === 'string' ? parseISO(event.start) : event.start,
           end: typeof event.end === 'string' ? parseISO(event.end) : event.end,
@@ -94,68 +83,38 @@ export function EventDialog({ event, studentId, isOpen, onOpenChange, onSave }: 
           meetingLink: event.meetingLink || '',
           description: event.description || '',
         });
-      } else { // Fallback for safety, though event should always be provided now
-        const now = new Date();
-        form.reset({
-          title: '',
-          allDay: false,
-          start: now,
-          end: addHours(now, 1),
-          tutorName: '',
-          cost: 0,
-          meetingLink: '',
-          description: '',
-        });
-      }
     }
-  }, [event, isOpen, form.reset]);
+  }, [event, isOpen, reset]);
+
 
   const handleAllDayToggle = (checked: boolean) => {
-    const currentStart = form.getValues('start');
+    setValue('allDay', checked);
     if (checked) {
-        form.setValue('start', startOfDay(currentStart));
-        form.setValue('end', endOfDay(currentStart));
+      setValue('start', startOfDay(startDate), { shouldValidate: true });
+      setValue('end', endOfDay(startDate), { shouldValidate: true });
     }
   };
 
   const handleStartDateSelect = (selectedDate: Date | undefined) => {
     if (!selectedDate) return;
-    const oldStart = form.getValues('start');
-    const oldEnd = form.getValues('end');
-    const duration = oldEnd.getTime() - oldStart.getTime();
+    const duration = differenceInMilliseconds(endDate, startDate);
 
-    const newStart = new Date(
-      selectedDate.getFullYear(),
-      selectedDate.getMonth(),
-      selectedDate.getDate(),
-      oldStart.getHours(),
-      oldStart.getMinutes()
-    );
-
+    const newStart = setMinutes(setHours(selectedDate, getHours(startDate)), getMinutes(startDate));
     const newEnd = new Date(newStart.getTime() + duration);
-    
-    form.setValue('start', newStart, { shouldValidate: true });
-    form.setValue('end', newEnd, { shouldValidate: true });
+
+    setValue('start', newStart, { shouldValidate: true });
+    setValue('end', newEnd, { shouldValidate: true });
   }
 
-  const handleTimeAdjust = (field: 'start' | 'end', unit: 'hours' | 'minutes', amount: number) => {
-    const originalDate = form.getValues(field);
-    let newDate;
-
-    if (unit === 'hours') {
-      newDate = addHours(originalDate, amount);
-    } else { 
-      newDate = addMinutes(originalDate, amount);
-    }
-    
-    const otherField = field === 'start' ? 'end' : 'start';
-    const otherDate = form.getValues(otherField);
-
-    if ((field === 'start' && newDate >= otherDate) || (field === 'end' && newDate <= otherDate)) {
-    } else {
-        form.setValue(field, newDate, { shouldValidate: true });
+  const handleTimeChange = (field: 'start' | 'end', time: string) => {
+    const originalDate = field === 'start' ? startDate : endDate;
+    const [hours, minutes] = time.split(':').map(Number);
+    if (!isNaN(hours) && !isNaN(minutes)) {
+        const newDate = setMinutes(setHours(originalDate, hours), minutes);
+        setValue(field, newDate, { shouldValidate: true });
     }
   };
+
 
   const onSubmit: SubmitHandler<EventFormValues> = (data) => {
     const submissionData = {
@@ -181,110 +140,62 @@ export function EventDialog({ event, studentId, isOpen, onOpenChange, onSave }: 
               control={form.control}
               name="title"
               render={({ field }) => (
-                <FormItem className="grid grid-cols-4 items-center gap-4">
-                  <FormLabel className="text-right">Title</FormLabel>
-                  <FormControl className="col-span-3">
-                    <Input {...field} required />
-                  </FormControl>
-                  <FormMessage className="col-start-2 col-span-3" />
-                </FormItem>
+                <FormItem><FormLabel>Title</FormLabel><FormControl><Input {...field} required /></FormControl><FormMessage /></FormItem>
               )}
             />
-
-            <FormField
-                control={form.control}
-                name="allDay"
-                render={({ field }) => (
-                    <FormItem className="flex items-center space-x-2 justify-end">
-                    <FormLabel>All-day event</FormLabel>
-                    <FormControl>
-                        <Checkbox
-                            checked={field.value}
-                            onCheckedChange={(checked) => {
-                                field.onChange(checked);
-                                handleAllDayToggle(!!checked);
-                            }}
-                        />
-                    </FormControl>
-                    </FormItem>
-                )}
-            />
             
-            {!isAllDay && (
-                 <Accordion type="single" collapsible className="w-full" defaultValue="item-1">
-                    <AccordionItem value="item-1">
-                    <AccordionTrigger className="text-sm font-medium">Date &amp; Time</AccordionTrigger>
-                    <AccordionContent>
-                        <div className="grid md:grid-cols-2 gap-4 pt-2">
-                            <FormField control={form.control} name="start" render={({ field }) => (
-                                <FormItem className='space-y-2'>
-                                    <FormLabel>Start Date & Time</FormLabel>
-                                    <FormControl>
-                                      <ShadCalendar mode="single" selected={field.value} onSelect={handleStartDateSelect} className="rounded-md border"/>
-                                    </FormControl>
-                                    <div className="flex items-center justify-center gap-1 p-2 rounded-md border bg-background">
-                                        <div className="flex flex-col items-center gap-1">
-                                            <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleTimeAdjust('start', 'hours', 1)}><ChevronUp className="h-4 w-4" /></Button>
-                                            <span className="text-xl font-mono w-10 text-center">{format(field.value, 'HH')}</span>
-                                            <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleTimeAdjust('start', 'hours', -1)}><ChevronDown className="h-4 w-4" /></Button>
-                                        </div>
-                                        <span className="text-2xl font-bold pb-2">:</span>
-                                        <div className="flex flex-col items-center gap-1">
-                                            <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleTimeAdjust('start', 'minutes', 5)}><ChevronUp className="h-4 w-4" /></Button>
-                                            <span className="text-xl font-mono w-10 text-center">{format(field.value, 'mm')}</span>
-                                            <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleTimeAdjust('start', 'minutes', -5)}><ChevronDown className="h-4 w-4" /></Button>
-                                        </div>
-                                    </div>
-                                    <FormMessage/>
-                                </FormItem>
-                            )}/>
+            <div className="flex items-center space-x-2">
+              <Checkbox id="allDay" checked={isAllDay} onCheckedChange={handleAllDayToggle} />
+              <label htmlFor="allDay" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                All-day event
+              </label>
+            </div>
 
-                            <FormField control={form.control} name="end" render={({ field }) => (
-                                <FormItem className='space-y-2'>
-                                    <FormLabel>End Date & Time</FormLabel>
-                                    <FormControl>
-                                      <ShadCalendar mode="single" selected={field.value} onSelect={field.onChange} className="rounded-md border"/>
-                                    </FormControl>
-                                    <div className="flex items-center justify-center gap-1 p-2 rounded-md border bg-background">
-                                        <div className="flex flex-col items-center gap-1">
-                                            <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleTimeAdjust('end', 'hours', 1)}><ChevronUp className="h-4 w-4" /></Button>
-                                            <span className="text-xl font-mono w-10 text-center">{format(field.value, 'HH')}</span>
-                                            <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleTimeAdjust('end', 'hours', -1)}><ChevronDown className="h-4 w-4" /></Button>
-                                        </div>
-                                        <span className="text-2xl font-bold pb-2">:</span>
-                                        <div className="flex flex-col items-center gap-1">
-                                            <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleTimeAdjust('end', 'minutes', 5)}><ChevronUp className="h-4 w-4" /></Button>
-                                            <span className="text-xl font-mono w-10 text-center">{format(field.value, 'mm')}</span>
-                                            <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleTimeAdjust('end', 'minutes', -5)}><ChevronDown className="h-4 w-4" /></Button>
-                                        </div>
-                                    </div>
-                                    <FormMessage />
-                                </FormItem>
-                            )}/>
+            <div className="grid md:grid-cols-2 gap-4">
+               <FormField control={form.control} name="start" render={({ field }) => (
+                  <FormItem>
+                     <FormLabel>Start Date {isAllDay ? '' : '& Time'}</FormLabel>
+                     <FormControl>
+                        <ShadCalendar mode="single" selected={field.value} onSelect={handleStartDateSelect} className="rounded-md border"/>
+                     </FormControl>
+                     {!isAllDay && (
+                        <div className="flex items-center gap-2">
+                           <Input type="time" value={format(field.value, 'HH:mm')} onChange={e => handleTimeChange('start', e.target.value)} />
                         </div>
-                    </AccordionContent>
-                    </AccordionItem>
-                </Accordion>
-            )}
+                     )}
+                     <FormMessage />
+                  </FormItem>
+               )} />
+               <FormField control={form.control} name="end" render={({ field }) => (
+                  <FormItem>
+                     <FormLabel>End Date {isAllDay ? '' : '& Time'}</FormLabel>
+                     <FormControl>
+                        <ShadCalendar mode="single" selected={field.value} onSelect={field.onChange} className="rounded-md border"/>
+                     </FormControl>
+                     {!isAllDay && (
+                        <div className="flex items-center gap-2">
+                           <Input type="time" value={format(field.value, 'HH:mm')} onChange={e => handleTimeChange('end', e.target.value)} />
+                        </div>
+                     )}
+                     <FormMessage />
+                  </FormItem>
+               )} />
+            </div>
 
             <FormField
               control={form.control}
               name="tutorName"
               render={({ field }) => (
-                <FormItem className="grid grid-cols-4 items-center gap-4">
-                  <FormLabel className="text-right">Tutor</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl className="col-span-3">
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a tutor" />
-                      </SelectTrigger>
-                    </FormControl>
+                <FormItem>
+                  <FormLabel>Tutor</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl><SelectTrigger><SelectValue placeholder="Select a tutor" /></SelectTrigger></FormControl>
                     <SelectContent>
+                      <SelectItem value="">None</SelectItem>
                       {tutorList.map(name => <SelectItem key={name} value={name}>{name}</SelectItem>)}
-                      <SelectItem value="N/A">N/A / Other</SelectItem>
                     </SelectContent>
                   </Select>
-                  <FormMessage className="col-start-2 col-span-3"/>
+                  <FormMessage />
                 </FormItem>
               )}
             />
@@ -293,15 +204,10 @@ export function EventDialog({ event, studentId, isOpen, onOpenChange, onSave }: 
               control={form.control}
               name="cost"
               render={({ field }) => (
-                <FormItem className="grid grid-cols-4 items-center gap-4">
-                  <FormLabel className="text-right">Cost</FormLabel>
-                  <div className="relative col-span-3">
-                    <span className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground">{getCurrencySymbol(currency)}</span>
-                    <FormControl>
-                        <Input type="number" className="pl-8" {...field} />
-                    </FormControl>
-                  </div>
-                  <FormMessage className="col-start-2 col-span-3"/>
+                <FormItem>
+                  <FormLabel>Cost ({getCurrencySymbol(currency)})</FormLabel>
+                  <FormControl><Input type="number" {...field} /></FormControl>
+                  <FormMessage />
                 </FormItem>
               )}
             />
@@ -310,12 +216,10 @@ export function EventDialog({ event, studentId, isOpen, onOpenChange, onSave }: 
               control={form.control}
               name="meetingLink"
               render={({ field }) => (
-                <FormItem className="grid grid-cols-4 items-center gap-4">
-                  <FormLabel className="text-right">Meeting Link</FormLabel>
-                  <FormControl className="col-span-3">
-                    <Input placeholder="https://..." {...field} />
-                  </FormControl>
-                  <FormMessage className="col-start-2 col-span-3"/>
+                <FormItem>
+                  <FormLabel>Meeting Link</FormLabel>
+                  <FormControl><Input placeholder="https://..." {...field} /></FormControl>
+                  <FormMessage />
                 </FormItem>
               )}
             />
@@ -324,12 +228,10 @@ export function EventDialog({ event, studentId, isOpen, onOpenChange, onSave }: 
               control={form.control}
               name="description"
               render={({ field }) => (
-                <FormItem className="grid grid-cols-4 items-start gap-4">
-                  <FormLabel className="text-right pt-2">Description</FormLabel>
-                  <FormControl className="col-span-3">
-                    <Textarea className="min-h-[80px]" {...field} />
-                  </FormControl>
-                   <FormMessage className="col-start-2 col-span-3"/>
+                <FormItem>
+                  <FormLabel>Description</FormLabel>
+                  <FormControl><Textarea className="min-h-[80px]" {...field} /></FormControl>
+                  <FormMessage />
                 </FormItem>
               )}
             />
