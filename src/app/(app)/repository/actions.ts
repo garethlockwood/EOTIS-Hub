@@ -1,7 +1,7 @@
 
 'use server';
 
-import { Timestamp } from 'firebase/firestore';
+import { Timestamp } from 'firebase-admin/firestore';
 import type { ContentDocument } from '@/types';
 import { revalidatePath } from 'next/cache';
 import { tmpdir } from 'os';
@@ -94,7 +94,7 @@ export async function addContentDocument(formData: FormData, actingAdminUserId: 
     const uploaderName = uploaderDoc.exists ? (uploaderDoc.data()?.name || uploaderDoc.data()?.email || 'Admin') : 'Admin';
     const uploaderRole = uploaderDoc.exists ? (uploaderDoc.data()?.role || 'Admin') : 'Admin';
 
-    const newDocData: Omit<ContentDocument, 'uploadDate'> & { uploadDate: Timestamp } = {
+    const newDocData: Omit<ContentDocument, 'uploadDate' | 'id'> & { uploadDate: Timestamp } = {
       name,
       description: description || '',
       type,
@@ -107,11 +107,10 @@ export async function addContentDocument(formData: FormData, actingAdminUserId: 
       uploaderName,
       uploaderRole,
       uploadDate: Timestamp.now(),
-      id: newDocRef.id,
     };
     
     if (associatedUserId) {
-        newDocData.associatedUserId = associatedUserId;
+        (newDocData as any).associatedUserId = associatedUserId;
     }
 
 
@@ -122,6 +121,7 @@ export async function addContentDocument(formData: FormData, actingAdminUserId: 
       success: true,
       document: {
         ...newDocData,
+        id: newDocRef.id,
         uploadDate: newDocData.uploadDate.toDate().toISOString(),
       } as ContentDocument,
     };
