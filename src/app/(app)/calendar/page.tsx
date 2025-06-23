@@ -19,7 +19,7 @@ import { Label } from '@/components/ui/label';
 
 export default function CalendarPage() {
   const [view, setView] = useState('dayGridMonth');
-  const [viewHours, setViewHours] = useState([8, 20]); // Default to 8am - 8pm
+  const [viewHours, setViewHours] = useState([9, 18]); // Default to 9am - 6pm
   const { selectedStudent, isLoading: studentIsLoading } = useStudent();
   const { toast } = useToast();
 
