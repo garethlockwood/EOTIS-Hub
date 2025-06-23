@@ -12,7 +12,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { PlusCircle, Search, Download, Edit, Trash2, Tag, Loader2, UserX } from 'lucide-react';
 import { format } from 'date-fns';
 import { useAuth } from '@/hooks/use-auth';
-import { toast } from 'sonner';
+import { useToast } from '@/hooks/use-toast';
 import type { ContentDocument } from '@/types';
 import { getContentDocuments } from './actions';
 import { ContentDocDialog } from '@/components/repository/content-doc-dialog';
@@ -27,13 +27,14 @@ export default function RepositoryPage() {
   const [filterType, setFilterType] = useState<'all' | ContentDocument['type']>('all');
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingDoc, setEditingDoc] = useState<ContentDocument | null>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     const fetchDocs = async () => {
       setIsLoading(true);
       const result = await getContentDocuments();
       if (result.error) {
-        toast.error('Failed to load content documents');
+        toast({ variant: 'destructive', title: 'Error', description: `Failed to load content documents: ${result.error}` });
         setDocuments([]);
       } else {
         setDocuments(result.documents || []);
@@ -41,7 +42,7 @@ export default function RepositoryPage() {
       setIsLoading(false);
     };
     fetchDocs();
-  }, []);
+  }, [toast]);
 
   const filteredDocuments = useMemo(() => {
     return documents.filter(doc => {
@@ -59,7 +60,7 @@ export default function RepositoryPage() {
   }, [documents, searchTerm, filterType, selectedStudent]);
 
   const handleSaveDoc = (doc: ContentDocument) => {
-    toast.success('Document saved');
+    toast({title: 'Document Saved', description: `"${doc.name}" has been processed successfully.`});
     const existingIndex = documents.findIndex(d => d.id === doc.id);
     if (existingIndex !== -1) {
       const updated = [...documents];
@@ -128,7 +129,7 @@ export default function RepositoryPage() {
                           if (doc.fileUrl) {
                             window.open(doc.fileUrl, '_blank');
                           } else {
-                            toast.warning('File URL is missing');
+                            toast({variant: "destructive", title: 'File URL is missing'});
                           }
                         }}>
                           <Download className="h-4 w-4" />
