@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useMemo } from 'react';
@@ -5,7 +6,8 @@ import { Calendar as ShadCalendar } from '@/components/ui/calendar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { CalendarEvent } from '@/types';
-import { format, isSameDay } from 'date-fns';
+import { format, isSameDay, parseISO } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 interface MonthViewProps {
   currentDate: Date;
@@ -23,12 +25,17 @@ const DailyEventList = ({ events, onEventClick }: { events: CalendarEvent[], onE
     <ScrollArea className="h-full">
       <div className="p-4 space-y-3">
         {events.map(event => (
-          <Card key={event.id} className="p-3 shadow-sm hover:shadow-md transition-shadow cursor-pointer bg-secondary/30" onClick={() => onEventClick(event)}>
+          <Card 
+            key={event.id} 
+            className={cn("p-3 shadow-sm hover:shadow-md transition-shadow cursor-pointer")}
+            style={{ backgroundColor: event.color }}
+            onClick={() => onEventClick(event)}
+          >
             <CardHeader className="p-0 mb-2">
-               <CardTitle className="text-base font-semibold">{event.title}</CardTitle>
+               <CardTitle className="text-base font-semibold" style={{ color: event.textColor }}>{event.title}</CardTitle>
             </CardHeader>
-            <CardContent className="p-0 text-sm text-muted-foreground space-y-1">
-                <p>{event.allDay ? 'All Day' : `${format(event.start as Date, 'h:mm a')} - ${format(event.end as Date, 'h:mm a')}`}</p>
+            <CardContent className="p-0 text-sm space-y-1" style={{ color: event.textColor }}>
+                <p>{event.allDay ? 'All Day' : `${format(parseISO(event.start as string), 'h:mm a')} - ${format(parseISO(event.end as string), 'h:mm a')}`}</p>
                 {event.tutorName && <p>Tutor: {event.tutorName}</p>}
             </CardContent>
           </Card>
@@ -41,8 +48,8 @@ const DailyEventList = ({ events, onEventClick }: { events: CalendarEvent[], onE
 
 export function MonthView({ currentDate, onDateSelect, events, onEventClick }: MonthViewProps) {
   const dailyEvents = useMemo(() => events
-    .filter(event => isSameDay(event.start as Date, currentDate))
-    .sort((a,b) => (a.start as Date).getTime() - (b.start as Date).getTime()), 
+    .filter(event => isSameDay(parseISO(event.start as string), currentDate))
+    .sort((a,b) => (new Date(a.start as string)).getTime() - (new Date(b.start as string)).getTime()), 
     [events, currentDate]
   );
   

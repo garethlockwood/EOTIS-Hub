@@ -4,6 +4,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { PageHeader } from '@/components/common/page-header';
 import CalendarView from '@/components/calendar/calendar-view';
+import { MonthView } from '@/components/calendar/month-view';
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from '@/components/ui/button';
 import { PlusCircle, Loader2, UserX } from 'lucide-react';
@@ -19,15 +20,15 @@ import { Label } from '@/components/ui/label';
 
 export default function CalendarPage() {
   const [view, setView] = useState('dayGridMonth');
-  const [viewHours, setViewHours] = useState([9, 18]); // Default to 9am - 6pm
+  const [viewHours, setViewHours] = useState([9, 18]);
   const { selectedStudent, isLoading: studentIsLoading } = useStudent();
   const { toast } = useToast();
 
   const [events, setEvents] = useState<EventInput[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  // Store the full CalendarEvent for editing, or just start/end for creating
   const [dialogData, setDialogData] = useState<Partial<CalendarEvent> | null>(null);
+  const [monthViewDate, setMonthViewDate] = useState(new Date());
 
   const fetchEvents = useCallback(async (studentId: string) => {
     setIsLoading(true);
@@ -50,12 +51,10 @@ export default function CalendarPage() {
   }, [selectedStudent, fetchEvents]);
 
   const handleDateSelect = (selectInfo: DateSelectArg) => {
-    // This function is intentionally left blank.
-    // The "Add Event" button is the primary method for creating new events.
-    // This prevents the dialog from opening when a user simply clicks or drags on a date.
+    // Intentionally left blank
   };
 
-  const handleEventClick = (clickInfo: EventClickArg) => {
+  const handleFullCalendarEventClick = (clickInfo: EventClickArg) => {
     const event = events.find(e => e.id === clickInfo.event.id);
     if (event) {
         setDialogData({
@@ -65,6 +64,11 @@ export default function CalendarPage() {
         });
       setIsDialogOpen(true);
     }
+  };
+
+  const handleMonthViewEventClick = (event: CalendarEvent) => {
+    setDialogData(event);
+    setIsDialogOpen(true);
   };
   
   const handleEventChange = async (changeInfo: EventChangeArg) => {
@@ -137,22 +141,29 @@ export default function CalendarPage() {
   
   const renderContent = () => {
      if (studentIsLoading || isLoading) {
-      return (
-        <div className="flex justify-center items-center h-64">
-          <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        </div>
-      );
+      return <div className="flex justify-center items-center h-64"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
     }
     if (!selectedStudent) {
       return (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center h-96 text-center">
+        <Card><CardContent className="flex flex-col items-center justify-center h-96 text-center">
             <UserX className="h-16 w-16 text-muted-foreground mb-4" />
             <h3 className="text-xl font-semibold">No Student Selected</h3>
             <p className="text-muted-foreground">Please select a student to view their calendar.</p>
-          </CardContent>
-        </Card>
+        </CardContent></Card>
       );
+    }
+
+    if (view === 'dayGridMonth') {
+        return (
+            <div className="mt-4 rounded-lg border bg-card text-card-foreground shadow-sm h-[600px] flex">
+                 <MonthView
+                    currentDate={monthViewDate}
+                    onDateSelect={setMonthViewDate}
+                    events={events as CalendarEvent[]}
+                    onEventClick={handleMonthViewEventClick}
+                 />
+            </div>
+        );
     }
 
     return (
@@ -162,10 +173,10 @@ export default function CalendarPage() {
             view={view}
             events={events}
             onDateSelect={handleDateSelect}
-            onEventClick={handleEventClick}
+            onEventClick={handleFullCalendarEventClick}
             onEventChange={handleEventChange}
-            slotMinTime={view === 'dayGridMonth' ? undefined : formatHour(viewHours[0])}
-            slotMaxTime={view === 'dayGridMonth' ? undefined : formatHour(viewHours[1])}
+            slotMinTime={formatHour(viewHours[0])}
+            slotMaxTime={formatHour(viewHours[1])}
         />
       </div>
     );
@@ -173,24 +184,18 @@ export default function CalendarPage() {
 
   return (
     <>
-      <PageHeader
-        title="Calendar"
-        description="Manage your lessons and meetings."
-      >
+      <PageHeader title="Calendar" description="Manage your lessons and meetings.">
         <Button onClick={() => {
-            setDialogData({ start: new Date(), end: new Date(Date.now() + 3600000) });
+            const startDate = view === 'dayGridMonth' ? monthViewDate : new Date();
+            setDialogData({ start: startDate, end: new Date(startDate.getTime() + 3600000) });
             setIsDialogOpen(true);
-        }}
-        disabled={!selectedStudent}
-        >
+        }} disabled={!selectedStudent}>
             <PlusCircle className="mr-2 h-4 w-4" /> Add Event
         </Button>
       </PageHeader>
       
       <div className="flex flex-col md:flex-row md:items-center gap-4">
-        <Tabs defaultValue="dayGridMonth" onValueChange={(value) => {
-            setView(value);
-        }} className="w-full md:w-auto shrink-0">
+        <Tabs defaultValue="dayGridMonth" onValueChange={(value) => { setView(value); }} className="w-full md:w-auto shrink-0">
             <TabsList className="flex w-full md:w-auto">
             <TabsTrigger value="dayGridMonth" className="flex-1">Month</TabsTrigger>
             <TabsTrigger value="timeGridWeek" className="flex-1">Week</TabsTrigger>
@@ -204,15 +209,7 @@ export default function CalendarPage() {
                     <Label htmlFor="view-hours-slider" className="min-w-max text-sm text-muted-foreground shrink-0">
                         View: {viewHours[0]}:00 - {viewHours[1]}:00
                     </Label>
-                    <Slider
-                        id="view-hours-slider"
-                        value={viewHours}
-                        onValueChange={setViewHours}
-                        min={0}
-                        max={24}
-                        step={1}
-                        className="max-w-[250px]"
-                    />
+                    <Slider id="view-hours-slider" value={viewHours} onValueChange={setViewHours} min={0} max={24} step={1} className="max-w-[250px]" />
                 </div>
             )}
         </div>
