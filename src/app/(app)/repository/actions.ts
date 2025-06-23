@@ -185,3 +185,41 @@ export async function updateContentDocument(
     return { error: err.message || 'Update failed.' };
   }
 }
+
+export async function deleteContentDocument(
+  docId: string,
+  storagePath: string | undefined,
+  adminId: string
+): Promise<{ success?: boolean; error?: string }> {
+  
+  if (!(await isAdmin(adminId))) {
+      return { error: 'Permission denied. Only admins can delete documents.' };
+  }
+
+  if (!docId) {
+      return { error: 'Document ID is required for deletion.' };
+  }
+
+  try {
+      if (storagePath) {
+          try {
+              await bucket.file(storagePath).delete();
+              console.log(`[deleteContentDocument] Deleted from storage: ${storagePath}`);
+          } catch (err: any) {
+              if (err.code === 404) {
+                  console.warn(`[deleteContentDocument] File not found in storage at ${storagePath}. Proceeding with Firestore delete.`);
+              } else {
+                  throw err;
+              }
+          }
+      }
+
+      await dbAdmin.collection('contentDocuments').doc(docId).delete();
+      revalidatePath('/repository');
+      return { success: true };
+
+  } catch (error: any) {
+      console.error('[deleteContentDocument] Error:', error);
+      return { error: `Failed to delete document: ${error.message}` };
+  }
+}

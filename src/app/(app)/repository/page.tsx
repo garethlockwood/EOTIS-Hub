@@ -14,11 +14,11 @@ import { format } from 'date-fns';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import type { ContentDocument } from '@/types';
-import { getContentDocuments } from './actions';
+import { getContentDocuments, deleteContentDocument } from './actions';
 import { getDocumentTypes, addDocumentType, deleteDocumentType } from './typeActions'; // Import action to get types
 import { ContentDocDialog } from '@/components/repository/content-doc-dialog';
 import { useStudent } from '@/hooks/use-student';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 
 interface DocumentType {
   id: string;
@@ -31,6 +31,7 @@ export default function RepositoryPage() {
   const [documents, setDocuments] = useState<ContentDocument[]>([]);
   const [docTypes, setDocTypes] = useState<DocumentType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -66,6 +67,22 @@ export default function RepositoryPage() {
   useEffect(() => {
     fetchPageData();
   }, [fetchPageData]);
+
+  const handleDelete = async (doc: ContentDocument) => {
+    if (!user?.id || !user.isAdmin) {
+      toast({ variant: 'destructive', title: 'Permission Denied', description: 'Only admins can delete documents.' });
+      return;
+    }
+    setIsDeleting(doc.id);
+    const result = await deleteContentDocument(doc.id, doc.storagePath, user.id);
+    if (result.success) {
+      toast({ title: 'Document Deleted', description: `"${doc.name}" has been removed.`});
+      await fetchPageData();
+    } else {
+      toast({ variant: 'destructive', title: 'Delete Failed', description: result.error });
+    }
+    setIsDeleting(null);
+  };
 
   const handleDeleteType = async (typeId: string, typeName: string) => {
     const result = await deleteDocumentType(typeId, typeName);
@@ -140,7 +157,7 @@ export default function RepositoryPage() {
               <TableBody>
                 {filteredDocuments.length > 0 ? (
                   filteredDocuments.map(doc => (
-                    <TableRow key={doc.id}>
+                    <TableRow key={doc.id} className={isDeleting === doc.id ? 'opacity-50' : ''}>
                       <TableCell className="font-medium">
                         {doc.fileUrl ? (
                           <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="hover:underline text-primary">
@@ -160,22 +177,42 @@ export default function RepositoryPage() {
                           </div>
                         ) : 'N/A'}
                       </TableCell>
-                      <TableCell className="text-right">
-                        <Button variant="ghost" size="icon" onClick={() => {
-                          if (doc.fileUrl) {
-                            window.open(doc.fileUrl, '_blank');
-                          } else {
-                            toast({variant: "destructive", title: 'File URL is missing'});
-                          }
-                        }}>
-                          <Download className="h-4 w-4" />
+                      <TableCell className="text-right space-x-1">
+                        <Button variant="ghost" size="icon" asChild>
+                          <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" download>
+                            <Download className="h-4 w-4" />
+                          </a>
                         </Button>
                         <Button variant="ghost" size="icon" onClick={() => { setEditingDoc(doc); setIsFormOpen(true); }} disabled={!user?.isAdmin}>
                           <Edit className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" disabled title="Delete (not implemented)" className="text-destructive hover:text-destructive">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              title="Delete Document"
+                              className="text-destructive hover:text-destructive"
+                              disabled={isDeleting === doc.id || !user?.isAdmin}
+                            >
+                              {isDeleting === doc.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This will permanently delete the document "{doc.name}". This action cannot be undone.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => handleDelete(doc)} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
+                                Delete
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       </TableCell>
                     </TableRow>
                   ))
