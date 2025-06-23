@@ -63,7 +63,8 @@ export async function saveCalendarEvent(
     }
 
     try {
-        const { id, start, end, ...dataToSave } = eventData;
+        // By destructuring createdAt and updatedAt here, we prevent the client-side string versions from being saved.
+        const { id, start, end, createdAt, updatedAt, ...dataToSave } = eventData as any;
         
         const payload: any = {
             ...dataToSave,
