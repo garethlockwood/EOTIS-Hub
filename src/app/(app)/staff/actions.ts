@@ -29,10 +29,10 @@ export async function getStaffForStudent(
   }
 
   try {
-    // Temporarily removed .orderBy to avoid index issues. Sorting is handled client-side.
     const snapshot = await dbAdmin
       .collection('staff')
       .where('studentIds', 'array-contains', studentId)
+      .orderBy('name', 'asc') // Re-enabled server-side sorting
       .get();
     
     if (snapshot.empty) {
@@ -51,7 +51,7 @@ export async function getStaffForStudent(
   } catch (error: any) {
     console.error('[getStaffForStudent] Error:', error);
     if (error.code === 'FAILED_PRECONDITION') {
-        return { error: 'Firestore index required. Please create a composite index on (studentIds ASC, name ASC) in the `staff` collection using the link in the terminal error log.' };
+        return { error: 'Firestore index required. Please create a composite index on (studentIds array-contains, name ASC) in the `staff` collection using the link in the terminal error log.' };
     }
     return { error: `Failed to fetch staff: ${error.message}` };
   }
