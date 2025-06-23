@@ -65,19 +65,20 @@ interface EventDialogProps {
   onDelete?: (eventId: string) => void;
 }
 
-const COLORS = [
-  '#64B5F6', // primary (blue)
-  '#81C784', // green
-  '#FFB74D', // accent (orange)
-  '#BA68C8', // purple
-  '#FF8A65', // deep orange
-  '#4DD0E1', // cyan
-  '#F06292', // pink
+const PRIMARY_COLORS = [
+  '#64B5F6', '#81C784', '#FFB74D', '#BA68C8',
+  '#FF8A65', '#4DD0E1', '#F06292', '#FFD54F',
+];
+
+const SECONDARY_COLORS = [
+  '#E57373', '#7986CB', '#4DB6AC', '#AED581',
+  '#90A4AE', '#A1887F', '#FFF176', '#DCE775',
 ];
 
 export function EventDialog({ event, studentId, isOpen, onOpenChange, onSave, onDelete }: EventDialogProps) {
   const { currency } = useAuth();
   const [tutorList, setTutorList] = useState<string[]>([]);
+  const [showMoreColors, setShowMoreColors] = useState(false);
 
   const form = useForm<EventFormValues>({
     resolver: zodResolver(eventFormSchema),
@@ -247,35 +248,59 @@ export function EventDialog({ event, studentId, isOpen, onOpenChange, onSave, on
                 <FormItem>
                   <FormLabel>Event Color</FormLabel>
                   <FormControl>
-                    <div className="flex flex-wrap gap-2 pt-2">
-                      {COLORS.map((color) => (
+                    <div>
+                      <div className="flex flex-wrap gap-2 pt-2">
+                        {PRIMARY_COLORS.map((color) => (
+                          <button
+                            key={color}
+                            type="button"
+                            className={cn(
+                              "h-8 w-8 rounded-full border-2 transition-all",
+                              field.value === color
+                                ? 'border-ring ring-2 ring-ring ring-offset-2'
+                                : 'border-transparent hover:border-muted-foreground/50'
+                            )}
+                            style={{ backgroundColor: color }}
+                            onClick={() => field.onChange(color)}
+                            aria-label={`Select color ${color}`}
+                          />
+                        ))}
                         <button
-                          key={color}
-                          type="button"
-                          className={cn(
-                            "h-8 w-8 rounded-full border-2 transition-all",
-                            field.value === color
-                              ? 'border-ring ring-2 ring-ring ring-offset-2'
-                              : 'border-transparent hover:border-muted-foreground/50'
-                          )}
-                          style={{ backgroundColor: color }}
-                          onClick={() => field.onChange(color)}
-                          aria-label={`Select color ${color}`}
-                        />
-                      ))}
-                      <button
-                          type="button"
-                          className={cn(
-                            "h-8 w-8 rounded-full border-2 flex items-center justify-center bg-muted",
-                            !field.value
-                              ? 'border-ring ring-2 ring-ring ring-offset-2'
-                              : 'border-transparent hover:border-muted-foreground/50'
-                          )}
-                          onClick={() => field.onChange(undefined)}
-                          aria-label="Reset color"
-                        >
-                         <X className="h-4 w-4 text-muted-foreground" />
+                            type="button"
+                            className={cn(
+                              "h-8 w-8 rounded-full border-2 flex items-center justify-center bg-muted",
+                              !field.value
+                                ? 'border-ring ring-2 ring-ring ring-offset-2'
+                                : 'border-transparent hover:border-muted-foreground/50'
+                            )}
+                            onClick={() => field.onChange(undefined)}
+                            aria-label="Reset color"
+                          >
+                          <X className="h-4 w-4 text-muted-foreground" />
                         </button>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => setShowMoreColors(!showMoreColors)}>
+                            {showMoreColors ? 'Show less' : 'Show more...'}
+                        </Button>
+                      </div>
+                      {showMoreColors && (
+                        <div className="flex flex-wrap gap-2 pt-2 animate-in fade-in-0 duration-300">
+                          {SECONDARY_COLORS.map((color) => (
+                            <button
+                              key={color}
+                              type="button"
+                              className={cn(
+                                "h-8 w-8 rounded-full border-2 transition-all",
+                                field.value === color
+                                  ? 'border-ring ring-2 ring-ring ring-offset-2'
+                                  : 'border-transparent hover:border-muted-foreground/50'
+                              )}
+                              style={{ backgroundColor: color }}
+                              onClick={() => field.onChange(color)}
+                              aria-label={`Select color ${color}`}
+                            />
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </FormControl>
                   <FormMessage />
