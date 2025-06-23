@@ -20,7 +20,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Calendar as ShadCalendar } from '@/components/ui/calendar';
 import { Checkbox } from '@/components/ui/checkbox';
-import { format, parseISO, addHours, addMinutes, startOfDay, endOfDay } from 'date-fns';
+import { format, parseISO, addHours, addMinutes, startOfDay, endOfDay, differenceInDays } from 'date-fns';
 import type { CalendarEvent } from '@/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/hooks/use-auth';
@@ -47,14 +47,13 @@ type EventFormValues = z.infer<typeof eventFormSchema>;
 
 interface EventDialogProps {
   event?: CalendarEvent | null;
-  date?: Date;
   studentId?: string | null;
   isOpen?: boolean;
   onOpenChange?: (open: boolean) => void;
   onSave: (event: Omit<CalendarEvent, 'id'> & { id?: string }) => void;
 }
 
-export function EventDialog({ event, date, studentId, isOpen, onOpenChange, onSave }: EventDialogProps) {
+export function EventDialog({ event, studentId, isOpen, onOpenChange, onSave }: EventDialogProps) {
   const { currency } = useAuth();
   const [tutorList, setTutorList] = useState<string[]>([]);
 
@@ -81,11 +80,10 @@ export function EventDialog({ event, date, studentId, isOpen, onOpenChange, onSa
       }
     });
   }, []);
-
+  
   useEffect(() => {
     if (isOpen) {
-      const initialDate = date || new Date();
-      if (event) {
+      if (event) { // Handles both new (with empty id) and existing events
         form.reset({
           title: event.title,
           allDay: event.allDay || false,
@@ -96,12 +94,13 @@ export function EventDialog({ event, date, studentId, isOpen, onOpenChange, onSa
           meetingLink: event.meetingLink || '',
           description: event.description || '',
         });
-      } else {
+      } else { // Fallback for safety, though event should always be provided now
+        const now = new Date();
         form.reset({
           title: '',
           allDay: false,
-          start: initialDate,
-          end: addHours(initialDate, 1),
+          start: now,
+          end: addHours(now, 1),
           tutorName: '',
           cost: 0,
           meetingLink: '',
@@ -109,8 +108,8 @@ export function EventDialog({ event, date, studentId, isOpen, onOpenChange, onSa
         });
       }
     }
-  }, [event, date, isOpen, form]);
-  
+  }, [event, isOpen, form]);
+
   const handleAllDayToggle = (checked: boolean) => {
     const currentStart = form.getValues('start');
     if (checked) {
@@ -119,13 +118,33 @@ export function EventDialog({ event, date, studentId, isOpen, onOpenChange, onSa
     }
   };
 
+  const handleStartDateSelect = (selectedDate: Date | undefined) => {
+    if (!selectedDate) return;
+    const oldStart = form.getValues('start');
+    const oldEnd = form.getValues('end');
+    const duration = oldEnd.getTime() - oldStart.getTime();
+
+    const newStart = new Date(
+      selectedDate.getFullYear(),
+      selectedDate.getMonth(),
+      selectedDate.getDate(),
+      oldStart.getHours(),
+      oldStart.getMinutes()
+    );
+
+    const newEnd = new Date(newStart.getTime() + duration);
+    
+    form.setValue('start', newStart, { shouldValidate: true });
+    form.setValue('end', newEnd, { shouldValidate: true });
+  }
+
   const handleTimeAdjust = (field: 'start' | 'end', unit: 'hours' | 'minutes', amount: number) => {
     const originalDate = form.getValues(field);
     let newDate;
 
     if (unit === 'hours') {
       newDate = addHours(originalDate, amount);
-    } else { // minutes
+    } else { 
       newDate = addMinutes(originalDate, amount);
     }
     
@@ -133,7 +152,6 @@ export function EventDialog({ event, date, studentId, isOpen, onOpenChange, onSa
     const otherDate = form.getValues(otherField);
 
     if ((field === 'start' && newDate >= otherDate) || (field === 'end' && newDate <= otherDate)) {
-        // Prevent start being after end, or end being before start
     } else {
         form.setValue(field, newDate, { shouldValidate: true });
     }
@@ -152,9 +170,9 @@ export function EventDialog({ event, date, studentId, isOpen, onOpenChange, onSa
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[620px]">
         <DialogHeader>
-          <DialogTitle className="font-headline">{event ? 'Edit Event' : 'Add New Event'}</DialogTitle>
+          <DialogTitle className="font-headline">{event?.id ? 'Edit Event' : 'Add New Event'}</DialogTitle>
           <DialogDescription>
-            {event ? 'Update the details of your event.' : 'Fill in the details for your new lesson or meeting.'}
+            {event?.id ? 'Update the details of your event.' : 'Fill in the details for your new lesson or meeting.'}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -202,7 +220,7 @@ export function EventDialog({ event, date, studentId, isOpen, onOpenChange, onSa
                                 <FormItem className='space-y-2'>
                                     <FormLabel>Start Date & Time</FormLabel>
                                     <FormControl>
-                                      <ShadCalendar mode="single" selected={field.value} onSelect={field.onChange} className="rounded-md border"/>
+                                      <ShadCalendar mode="single" selected={field.value} onSelect={handleStartDateSelect} className="rounded-md border"/>
                                     </FormControl>
                                     <div className="flex items-center justify-center gap-1 p-2 rounded-md border bg-background">
                                         <div className="flex flex-col items-center gap-1">

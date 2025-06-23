@@ -4,20 +4,18 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { PageHeader } from '@/components/common/page-header';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { EventDialog } from '@/components/calendar/event-dialog';
 import type { CalendarEvent } from '@/types';
-import { format, parseISO, addDays, addMonths, addWeeks, startOfMonth, startOfWeek } from 'date-fns';
-import { PlusCircle, ChevronLeft, ChevronRight, Loader2, UserX, AlertTriangle, CalendarIcon } from 'lucide-react';
+import { format, parseISO, addDays, addMonths, addWeeks, startOfWeek, addHours } from 'date-fns';
+import { PlusCircle, ChevronLeft, ChevronRight, Loader2, UserX, AlertTriangle } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { useStudent } from '@/hooks/use-student';
 import { useAuth } from '@/hooks/use-auth';
 import { getCalendarEvents, saveCalendarEvent, deleteCalendarEvent } from './actions';
-import { DayView } from '@/components/calendar/day-view';
-import { WeekView } from '@/components/calendar/week-view';
-import { MonthView } from '@/components/calendar/month-view';
+import { MainCalendar } from '@/components/calendar/week-view';
 
-type ViewType = 'month' | 'week' | 'day';
+type ViewType = 'Month' | 'Week' | 'Day';
 
 export default function CalendarPage() {
   const { user } = useAuth();
@@ -29,7 +27,7 @@ export default function CalendarPage() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [isEventDialogOpen, setIsEventDialogOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
-  const [currentView, setCurrentView] = useState<ViewType>('month');
+  const [currentView, setCurrentView] = useState<ViewType>('Week');
   const [isMounted, setIsMounted] = useState(false);
   const { toast } = useToast();
   
@@ -70,15 +68,24 @@ export default function CalendarPage() {
 
   useEffect(() => setIsMounted(true), []);
 
-  const openNewEventDialog = useCallback((date?: Date) => {
+  const openNewEventDialog = useCallback((start?: Date, end?: Date) => {
     if (!studentId) {
       toast({ variant: 'destructive', title: 'No Student Selected', description: 'Please select a student before adding an event.' });
       return;
     }
-    setEditingEvent(null);
-    setSelectedDate(date || new Date());
+    const newEvent: CalendarEvent = {
+        id: '', // Empty ID signifies a new event
+        title: '',
+        start: start || new Date(),
+        end: end || addHours(start || new Date(), 1),
+        allDay: false,
+        studentId: studentId,
+        tutorName: '',
+        cost: 0
+    }
+    setEditingEvent(newEvent);
     setIsEventDialogOpen(true);
-  }, [studentId, toast]); 
+  }, [studentId, toast]);
 
   const openEditEventDialog = useCallback((event: CalendarEvent) => {
     setEditingEvent({
@@ -90,10 +97,9 @@ export default function CalendarPage() {
   }, []);
 
   const handleSaveEvent = async (eventToSave: Omit<CalendarEvent, 'id'> & { id?: string }) => {
-    const isNew = !eventToSave.id;
     const result = await saveCalendarEvent({
       ...eventToSave,
-      studentId: studentId, // Ensure studentId is attached
+      studentId: studentId,
     });
 
     if (result.success && result.event) {
@@ -124,23 +130,18 @@ export default function CalendarPage() {
     }
 
     const increment = direction === 'prev' ? -1 : 1;
-    if (currentView === 'day') {
+    if (currentView === 'Day') {
       setSelectedDate(prev => addDays(prev, increment));
-    } else if (currentView === 'week') {
+    } else if (currentView === 'Week') {
       setSelectedDate(prev => addWeeks(prev, increment));
     } else { // month
       setSelectedDate(prev => addMonths(prev, increment));
     }
   };
   
-  const handleDayClick = useCallback((date: Date) => {
-    setSelectedDate(date);
-    setCurrentView('day');
-  }, []);
-
   const viewTitle = useMemo(() => {
-    if (currentView === 'month') return format(selectedDate, 'MMMM yyyy');
-    if (currentView === 'week') {
+    if (currentView === 'Month') return format(selectedDate, 'MMMM yyyy');
+    if (currentView === 'Week') {
       const weekStartsOn = 1;
       const start = startOfWeek(selectedDate, { weekStartsOn });
       const end = addDays(start, 6);
@@ -148,18 +149,9 @@ export default function CalendarPage() {
     }
     return format(selectedDate, 'EEEE, MMMM d, yyyy');
   }, [currentView, selectedDate]);
-
-  const renderView = () => {
-    switch(currentView) {
-      case 'month':
-        return <MonthView selectedDate={selectedDate} events={events} onDayClick={handleDayClick} onEventClick={openEditEventDialog} />;
-      case 'week':
-        return <WeekView selectedDate={selectedDate} events={events} onEventClick={openEditEventDialog} onDayHeaderClick={handleDayClick} />;
-      case 'day':
-        return <DayView selectedDate={selectedDate} events={events} onEventClick={openEditEventDialog} />;
-      default:
-        return null;
-    }
+  
+  const handleTimeRangeSelected = (start: Date, end: Date) => {
+    openNewEventDialog(start, end);
   };
 
   const renderContent = () => {
@@ -206,7 +198,6 @@ export default function CalendarPage() {
     
     return (
         <Card className="flex-1 flex flex-col shadow-lg overflow-hidden">
-            {/* Calendar Controls */}
             <div className="flex items-center p-2 border-b flex-wrap gap-2">
                 <div className='flex items-center gap-1'>
                     <Button variant="outline" onClick={() => handleNavigate('today')}>Today</Button>
@@ -215,7 +206,7 @@ export default function CalendarPage() {
                 </div>
                 <h2 className="text-lg font-semibold text-center ml-4 mr-auto">{viewTitle}</h2>
                 <div className='flex items-center gap-2'>
-                    {(['month', 'week', 'day'] as ViewType[]).map(view => (
+                    {(['Month', 'Week', 'Day'] as ViewType[]).map(view => (
                         <Button 
                             key={view} 
                             variant={currentView === view ? 'default' : 'outline'}
@@ -227,9 +218,14 @@ export default function CalendarPage() {
                     ))}
                 </div>
             </div>
-            {/* Calendar View */}
             <div className="flex-1 overflow-auto">
-              {renderView()}
+              <MainCalendar 
+                events={events}
+                viewType={currentView}
+                selectedDate={selectedDate}
+                onEventClick={openEditEventDialog}
+                onTimeRangeSelected={handleTimeRangeSelected}
+              />
             </div>
         </Card>
     );
@@ -247,14 +243,15 @@ export default function CalendarPage() {
         {renderContent()}
       </div>
 
-      <EventDialog
-        event={editingEvent}
-        date={editingEvent ? undefined : selectedDate}
-        studentId={studentId}
-        isOpen={isEventDialogOpen}
-        onOpenChange={setIsEventDialogOpen}
-        onSave={handleSaveEvent}
-      />
+      {isEventDialogOpen && (
+        <EventDialog
+            event={editingEvent}
+            studentId={studentId}
+            isOpen={isEventDialogOpen}
+            onOpenChange={setIsEventDialogOpen}
+            onSave={handleSaveEvent}
+        />
+      )}
     </>
   );
 }
