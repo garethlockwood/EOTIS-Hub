@@ -3,32 +3,21 @@
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { PageHeader } from '@/components/common/page-header';
-import { Calendar as ShadCalendar } from '@/components/ui/calendar';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle as UiCardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { EventDialog } from '@/components/calendar/event-dialog';
 import type { CalendarEvent } from '@/types';
-import { format, isSameDay, parseISO, addDays, subDays, startOfWeek, endOfWeek, eachDayOfInterval, set, addMonths } from 'date-fns';
-import { PlusCircle, Edit3, Trash2, ZoomIn, ZoomOut, ChevronLeft, ChevronRight, CalendarIcon as TodayIcon, Loader2, UserX, AlertTriangle } from 'lucide-react';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { DayView } from '@/components/calendar/day-view';
-import { WeekView } from '@/components/calendar/week-view';
+import { format, parseISO, addDays, addMonths, addWeeks, startOfMonth, startOfWeek } from 'date-fns';
+import { PlusCircle, ChevronLeft, ChevronRight, Loader2, UserX, AlertTriangle, CalendarIcon } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { useStudent } from '@/hooks/use-student';
 import { useAuth } from '@/hooks/use-auth';
 import { getCalendarEvents, saveCalendarEvent, deleteCalendarEvent } from './actions';
+import { DayView } from '@/components/calendar/day-view';
+import { WeekView } from '@/components/calendar/week-view';
+import { MonthView } from '@/components/calendar/month-view';
+
+type ViewType = 'month' | 'week' | 'day';
 
 export default function CalendarPage() {
   const { user } = useAuth();
@@ -40,13 +29,9 @@ export default function CalendarPage() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [isEventDialogOpen, setIsEventDialogOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
-  const [currentView, setCurrentView] = useState<'month' | 'week' | 'day'>('month');
-  const [zoomLevel, setZoomLevel] = useState(1.0); 
+  const [currentView, setCurrentView] = useState<ViewType>('month');
   const [isMounted, setIsMounted] = useState(false);
   const { toast } = useToast();
-
-  const currentWeekStart = useMemo(() => startOfWeek(selectedDate, { weekStartsOn: 1 }), [selectedDate]);
-  const currentWeekEnd = useMemo(() => endOfWeek(selectedDate, { weekStartsOn: 1 }), [selectedDate]);
   
   const studentId = selectedStudent?.id;
 
@@ -83,35 +68,15 @@ export default function CalendarPage() {
     fetchEvents();
   }, [fetchEvents]);
 
-  const viewTitle = useMemo(() => {
-    if (currentView === 'month') return format(selectedDate, 'MMMM yyyy');
-    if (currentView === 'week') {
-      const startFormatted = format(currentWeekStart, 'MMM d');
-      const endFormatted = format(currentWeekEnd, 'MMM d, yyyy');
-      return `${startFormatted} - ${endFormatted}`;
-    }
-    if (currentView === 'day') return format(selectedDate, 'EEEE, MMM d, yyyy');
-    return '';
-  }, [currentView, selectedDate, currentWeekStart, currentWeekEnd]);
+  useEffect(() => setIsMounted(true), []);
 
-  const eventDateModifiers = useMemo(() => {
-    return {
-      hasEvent: events.map(e => e.start as Date),
-    };
-  }, [events]);
-
-  const eventsForSelectedDay = useMemo(() => {
-    return events
-      .filter(event => isSameDay(event.start as Date, selectedDate))
-      .sort((a, b) => (a.start as Date).getTime() - (b.start as Date).getTime());
-  }, [events, selectedDate]);
-  
-  const openNewEventDialog = useCallback(() => {
+  const openNewEventDialog = useCallback((date?: Date) => {
     if (!studentId) {
       toast({ variant: 'destructive', title: 'No Student Selected', description: 'Please select a student before adding an event.' });
       return;
     }
     setEditingEvent(null);
+    setSelectedDate(date || new Date());
     setIsEventDialogOpen(true);
   }, [studentId, toast]); 
 
@@ -124,19 +89,11 @@ export default function CalendarPage() {
     setIsEventDialogOpen(true);
   }, []);
 
-  useEffect(() => setIsMounted(true), []);
-
-  const handleMonthDateSelect = (date: Date | undefined) => {
-    if (date) {
-      setSelectedDate(date);
-    }
-  };
-
-  const handleSaveEvent = async (eventToSave: CalendarEvent) => {
+  const handleSaveEvent = async (eventToSave: Omit<CalendarEvent, 'id'> & { id?: string }) => {
     const isNew = !eventToSave.id;
     const result = await saveCalendarEvent({
       ...eventToSave,
-      id: isNew ? undefined : eventToSave.id,
+      studentId: studentId, // Ensure studentId is attached
     });
 
     if (result.success && result.event) {
@@ -148,7 +105,7 @@ export default function CalendarPage() {
     setEditingEvent(null);
     setIsEventDialogOpen(false);
   };
-
+  
   const handleDeleteEvent = async (eventId: string) => {
     const eventTitle = events.find(e => e.id === eventId)?.title || "event";
     const result = await deleteCalendarEvent(eventId);
@@ -160,25 +117,49 @@ export default function CalendarPage() {
     }
   };
 
-  const handleZoom = (amount: number) => {
-    setZoomLevel(prev => Math.max(0.5, Math.min(2.0, prev + amount)));
-  };
+  const handleNavigate = (direction: 'prev' | 'next' | 'today') => {
+    if (direction === 'today') {
+      setSelectedDate(new Date());
+      return;
+    }
 
-  const navigateDate = (offset: number) => {
-    if (currentView === 'day' || currentView === 'month') {
-      setSelectedDate(prev => addDays(prev, offset));
+    const increment = direction === 'prev' ? -1 : 1;
+    if (currentView === 'day') {
+      setSelectedDate(prev => addDays(prev, increment));
     } else if (currentView === 'week') {
-      setSelectedDate(prev => addDays(prev, offset * 7));
+      setSelectedDate(prev => addWeeks(prev, increment));
+    } else { // month
+      setSelectedDate(prev => addMonths(prev, increment));
     }
   };
   
-  const goToToday = () => {
-    setSelectedDate(new Date());
-  };
-
-  const handleSelectDateFromView = (date: Date) => {
+  const handleDayClick = useCallback((date: Date) => {
     setSelectedDate(date);
-    setCurrentView('day'); 
+    setCurrentView('day');
+  }, []);
+
+  const viewTitle = useMemo(() => {
+    if (currentView === 'month') return format(selectedDate, 'MMMM yyyy');
+    if (currentView === 'week') {
+      const weekStartsOn = 1;
+      const start = startOfWeek(selectedDate, { weekStartsOn });
+      const end = addDays(start, 6);
+      return `${format(start, 'MMM d')} - ${format(end, 'd, yyyy')}`;
+    }
+    return format(selectedDate, 'EEEE, MMMM d, yyyy');
+  }, [currentView, selectedDate]);
+
+  const renderView = () => {
+    switch(currentView) {
+      case 'month':
+        return <MonthView selectedDate={selectedDate} events={events} onDayClick={handleDayClick} onEventClick={openEditEventDialog} />;
+      case 'week':
+        return <WeekView selectedDate={selectedDate} events={events} onEventClick={openEditEventDialog} onDayHeaderClick={handleDayClick} />;
+      case 'day':
+        return <DayView selectedDate={selectedDate} events={events} onEventClick={openEditEventDialog} />;
+      default:
+        return null;
+    }
   };
 
   const renderContent = () => {
@@ -225,130 +206,31 @@ export default function CalendarPage() {
     
     return (
         <Card className="flex-1 flex flex-col shadow-lg overflow-hidden">
-            <Tabs value={currentView} onValueChange={(v) => setCurrentView(v as 'month' | 'week' | 'day')} className="flex-1 flex flex-col">
+            {/* Calendar Controls */}
             <div className="flex items-center p-2 border-b flex-wrap gap-2">
-              <TabsList className="mr-auto">
-                <TabsTrigger value="month">Month</TabsTrigger>
-                <TabsTrigger value="week">Week</TabsTrigger>
-                <TabsTrigger value="day">Day</TabsTrigger>
-              </TabsList>
-
-              <div className="flex items-center gap-1 ml-auto md:ml-0">
-                 <Button variant="outline" size="icon" onClick={() => navigateDate(-1)} title={currentView === 'week' ? "Previous Week" : "Previous Day"}>
-                    <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <Button variant="outline" size="sm" onClick={goToToday} className="hidden sm:inline-flex items-center">
-                    <TodayIcon className="mr-1 h-4 w-4" /> Today
-                </Button>
-                 <Button variant="outline" size="icon" onClick={() => navigateDate(1)} title={currentView === 'week' ? "Next Week" : "Next Day"}>
-                    <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-              <span className="text-sm font-medium text-center w-full md:w-auto md:mx-2 order-first md:order-none py-1 md:py-0">{viewTitle}</span>
-
-              {(currentView === 'week' || currentView === 'day') && (
-                <div className="flex items-center gap-1 ml-auto">
-                  <Button variant="outline" size="icon" onClick={() => handleZoom(-0.25)} disabled={zoomLevel <= 0.5} title="Zoom Out">
-                    <ZoomOut className="h-4 w-4" />
-                  </Button>
-                  <span className="text-xs w-10 text-center tabular-nums">{(zoomLevel * 100).toFixed(0)}%</span>
-                  <Button variant="outline" size="icon" onClick={() => handleZoom(0.25)} disabled={zoomLevel >= 2.0} title="Zoom In">
-                    <ZoomIn className="h-4 w-4" />
-                  </Button>
+                <div className='flex items-center gap-1'>
+                    <Button variant="outline" onClick={() => handleNavigate('today')}>Today</Button>
+                    <Button variant="ghost" size="icon" onClick={() => handleNavigate('prev')}><ChevronLeft className="h-4 w-4" /></Button>
+                    <Button variant="ghost" size="icon" onClick={() => handleNavigate('next')}><ChevronRight className="h-4 w-4" /></Button>
                 </div>
-              )}
+                <h2 className="text-lg font-semibold text-center ml-4 mr-auto">{viewTitle}</h2>
+                <div className='flex items-center gap-2'>
+                    {(['month', 'week', 'day'] as ViewType[]).map(view => (
+                        <Button 
+                            key={view} 
+                            variant={currentView === view ? 'default' : 'outline'}
+                            onClick={() => setCurrentView(view)}
+                            className='capitalize'
+                        >
+                            {view}
+                        </Button>
+                    ))}
+                </div>
             </div>
-
-            <TabsContent value="month" className="flex-1 flex flex-col md:flex-row gap-4 p-4 overflow-hidden">
-                <Card className="w-full md:flex-shrink-0 md:w-auto self-start shadow-md">
-                    <CardContent className="p-0">
-                      <ShadCalendar
-                          mode="single"
-                          selected={selectedDate}
-                          onSelect={handleMonthDateSelect}
-                          month={selectedDate}
-                          onMonthChange={setSelectedDate}
-                          className="p-3"
-                          modifiers={eventDateModifiers}
-                          modifiersClassNames={{ hasEvent: 'font-bold text-primary relative after:content-[\'\'] after:block after:w-1.5 after:h-1.5 after:bg-primary after:rounded-full after:absolute after:left-1/2 after:transform after:-translate-x-1/2 after:bottom-1.5' }}
-                      />
-                    </CardContent>
-                </Card>
-                <Card className="flex-1 flex flex-col shadow-inner bg-card">
-                  <div className="p-4 border-b">
-                    <h3 className="font-semibold text-lg font-headline">
-                      Schedule for {format(selectedDate, 'MMMM d, yyyy')}
-                    </h3>
-                  </div>
-                  <ScrollArea className="flex-1">
-                    <div className="p-4 space-y-3">
-                      {eventsForSelectedDay.length > 0 ? (
-                        eventsForSelectedDay.map(event => (
-                          <Card key={event.id} className="p-3 flex justify-between items-start group hover:bg-secondary/50 transition-colors cursor-pointer" onClick={() => openEditEventDialog(event)}>
-                            <div className="space-y-1">
-                              <p className="font-semibold text-sm">{event.title}</p>
-                              <p className="text-xs text-muted-foreground">{format(event.start as Date, 'p')} - {format(event.end as Date, 'p')}</p>
-                              {event.tutorName && event.tutorName !== 'N/A' && (
-                                <p className="text-xs text-muted-foreground">Tutor: {event.tutorName}</p>
-                              )}
-                            </div>
-                            <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-0.5">
-                              <Button variant="ghost" size="icon" className="h-7 w-7" title="Edit Event" onClick={(e) => { e.stopPropagation(); openEditEventDialog(event); }}>
-                                <Edit3 className="h-3.5 w-3.5" />
-                              </Button>
-                              <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                  <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" title="Delete Event" onClick={(e) => e.stopPropagation()}>
-                                    <Trash2 className="h-3.5 w-3.5" />
-                                  </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent onClick={(e) => e.stopPropagation()}>
-                                    <AlertDialogHeader>
-                                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                                        <AlertDialogDescription>
-                                        This action cannot be undone. This will permanently delete the event "{event.title}".
-                                        </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                        <AlertDialogAction onClick={() => handleDeleteEvent(event.id)} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
-                                    </AlertDialogFooter>
-                                </AlertDialogContent>
-                              </AlertDialog>
-                            </div>
-                          </Card>
-                        ))
-                      ) : (
-                        <div className="text-center py-10 h-full flex flex-col justify-center items-center">
-                          <p className="text-muted-foreground">No events scheduled for this day.</p>
-                        </div>
-                      )}
-                    </div>
-                  </ScrollArea>
-                </Card>
-            </TabsContent>
-            <TabsContent value="week" className="flex-1 overflow-hidden p-0">
-              <WeekView
-                selectedDate={selectedDate}
-                events={events}
-                zoomLevel={zoomLevel}
-                onNavigateDate={setSelectedDate}
-                onSelectDate={handleSelectDateFromView}
-                onEventClick={openEditEventDialog}
-                onDeleteEvent={handleDeleteEvent}
-              />
-            </TabsContent>
-            <TabsContent value="day" className="flex-1 overflow-hidden p-0">
-              <DayView
-                selectedDate={selectedDate}
-                events={events}
-                zoomLevel={zoomLevel}
-                onNavigateDate={setSelectedDate}
-                onEventClick={openEditEventDialog}
-                onDeleteEvent={handleDeleteEvent}
-              />
-            </TabsContent>
-          </Tabs>
+            {/* Calendar View */}
+            <div className="flex-1 overflow-auto">
+              {renderView()}
+            </div>
         </Card>
     );
   };
@@ -356,7 +238,7 @@ export default function CalendarPage() {
   return (
     <>
       <PageHeader title="Interactive Calendar" description="Manage your lessons, meetings, and events.">
-        <Button onClick={openNewEventDialog} disabled={!selectedStudent}>
+        <Button onClick={() => openNewEventDialog()} disabled={!selectedStudent}>
           <PlusCircle className="mr-2 h-4 w-4" /> Add Event
         </Button>
       </PageHeader>

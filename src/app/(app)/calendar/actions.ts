@@ -31,6 +31,7 @@ export async function getCalendarEvents(
       const event: CalendarEvent = {
         id: docSnap.id,
         title: data.title,
+        allDay: data.allDay || false,
         tutorName: data.tutorName,
         cost: data.cost,
         meetingLink: data.meetingLink,
@@ -68,6 +69,7 @@ export async function saveCalendarEvent(
             ...dataToSave,
             start: Timestamp.fromDate(new Date(start)),
             end: Timestamp.fromDate(new Date(end)),
+            allDay: dataToSave.allDay || false,
             updatedAt: Timestamp.now(),
         };
 
@@ -96,6 +98,7 @@ export async function saveCalendarEvent(
         const returnedEvent: CalendarEvent = {
             id: eventRef.id,
             title: savedData.title,
+            allDay: savedData.allDay,
             tutorName: savedData.tutorName,
             cost: savedData.cost,
             meetingLink: savedData.meetingLink,
