@@ -4,18 +4,49 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { PageHeader } from '@/components/common/page-header';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Calendar as ShadCalendar } from '@/components/ui/calendar';
 import { EventDialog } from '@/components/calendar/event-dialog';
 import type { CalendarEvent } from '@/types';
-import { format, parseISO, addDays, addMonths, addWeeks, startOfWeek, addHours } from 'date-fns';
+import { format, parseISO, addDays, addMonths, addWeeks, startOfWeek, addHours, isSameDay } from 'date-fns';
 import { PlusCircle, ChevronLeft, ChevronRight, Loader2, UserX, AlertTriangle } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { useStudent } from '@/hooks/use-student';
 import { useAuth } from '@/hooks/use-auth';
 import { getCalendarEvents, saveCalendarEvent, deleteCalendarEvent } from './actions';
 import { MainCalendar } from '@/components/calendar/week-view';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 type ViewType = 'Month' | 'Week' | 'Day';
+
+const DayEventsList = ({ events, selectedDate, onEventClick }: { events: CalendarEvent[], selectedDate: Date, onEventClick: (event: CalendarEvent) => void }) => {
+    const dailyEvents = useMemo(() => events.filter(event => 
+        isSameDay(event.start as Date, selectedDate)
+    ).sort((a,b) => (a.start as Date).getTime() - (b.start as Date).getTime()), [events, selectedDate]);
+
+    if (dailyEvents.length === 0) {
+        return <div className="text-center text-muted-foreground p-8">No events scheduled for this day.</div>
+    }
+
+    return (
+        <ScrollArea className="h-full">
+            <div className="p-4 space-y-3">
+                {dailyEvents.map(event => (
+                    <Card key={event.id} className="p-3 shadow-sm hover:shadow-md transition-shadow cursor-pointer" onClick={() => onEventClick(event)}>
+                        <CardHeader className="p-0 mb-2">
+                           <CardTitle className="text-base font-semibold">{event.title}</CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-0 text-sm text-muted-foreground space-y-1">
+                            <p>{event.allDay ? 'All Day' : `${format(event.start as Date, 'h:mm a')} - ${format(event.end as Date, 'h:mm a')}`}</p>
+                            {event.tutorName && <p>Tutor: {event.tutorName}</p>}
+                        </CardContent>
+                    </Card>
+                ))}
+            </div>
+        </ScrollArea>
+    );
+};
+
 
 export default function CalendarPage() {
   const { user } = useAuth();
@@ -195,29 +226,59 @@ export default function CalendarPage() {
         </Card>
       );
     }
+
+    const calendarHeader = (
+       <div className="flex items-center p-2 border-b flex-wrap gap-2">
+          <div className='flex items-center gap-1'>
+              <Button variant="outline" onClick={() => handleNavigate('today')}>Today</Button>
+              <Button variant="ghost" size="icon" onClick={() => handleNavigate('prev')}><ChevronLeft className="h-4 w-4" /></Button>
+              <Button variant="ghost" size="icon" onClick={() => handleNavigate('next')}><ChevronRight className="h-4 w-4" /></Button>
+          </div>
+          <h2 className="text-lg font-semibold text-center ml-4 mr-auto">{viewTitle}</h2>
+          <div className='flex items-center gap-2'>
+              {(['Month', 'Week', 'Day'] as ViewType[]).map(view => (
+                  <Button 
+                      key={view} 
+                      variant={currentView === view ? 'default' : 'outline'}
+                      onClick={() => setCurrentView(view)}
+                      className='capitalize'
+                  >
+                      {view}
+                  </Button>
+              ))}
+          </div>
+      </div>
+    );
+    
+    if (currentView === 'Month') {
+      return (
+        <Card className="flex-1 flex flex-col shadow-lg overflow-hidden">
+          {calendarHeader}
+          <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+            <div className="p-4 flex justify-center border-b md:border-r md:border-b-0">
+              <ShadCalendar
+                mode="single"
+                selected={selectedDate}
+                onSelect={(day) => day && setSelectedDate(day)}
+                className="rounded-md"
+              />
+            </div>
+            <div className="flex-1 flex flex-col overflow-hidden">
+              <h3 className="font-semibold p-4 border-b text-lg">
+                Events for {format(selectedDate, 'PPP')}
+              </h3>
+              <div className="flex-1 overflow-y-auto">
+                <DayEventsList events={events} selectedDate={selectedDate} onEventClick={openEditEventDialog} />
+              </div>
+            </div>
+          </div>
+        </Card>
+      )
+    }
     
     return (
         <Card className="flex-1 flex flex-col shadow-lg overflow-hidden">
-            <div className="flex items-center p-2 border-b flex-wrap gap-2">
-                <div className='flex items-center gap-1'>
-                    <Button variant="outline" onClick={() => handleNavigate('today')}>Today</Button>
-                    <Button variant="ghost" size="icon" onClick={() => handleNavigate('prev')}><ChevronLeft className="h-4 w-4" /></Button>
-                    <Button variant="ghost" size="icon" onClick={() => handleNavigate('next')}><ChevronRight className="h-4 w-4" /></Button>
-                </div>
-                <h2 className="text-lg font-semibold text-center ml-4 mr-auto">{viewTitle}</h2>
-                <div className='flex items-center gap-2'>
-                    {(['Month', 'Week', 'Day'] as ViewType[]).map(view => (
-                        <Button 
-                            key={view} 
-                            variant={currentView === view ? 'default' : 'outline'}
-                            onClick={() => setCurrentView(view)}
-                            className='capitalize'
-                        >
-                            {view}
-                        </Button>
-                    ))}
-                </div>
-            </div>
+            {calendarHeader}
             <div className="flex-1 overflow-auto">
               <MainCalendar 
                 events={events}
