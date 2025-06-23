@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { PageHeader } from '@/components/common/page-header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,34 +15,54 @@ import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import type { ContentDocument } from '@/types';
 import { getContentDocuments } from './actions';
+import { getDocumentTypes } from './typeActions'; // Import action to get types
 import { ContentDocDialog } from '@/components/repository/content-doc-dialog';
 import { useStudent } from '@/hooks/use-student';
+
+interface DocumentType {
+  id: string;
+  name: string;
+}
 
 export default function RepositoryPage() {
   const { user } = useAuth();
   const { selectedStudent, isLoading: studentIsLoading } = useStudent();
   const [documents, setDocuments] = useState<ContentDocument[]>([]);
+  const [docTypes, setDocTypes] = useState<DocumentType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterType, setFilterType] = useState<'all' | ContentDocument['type']>('all');
+  const [filterType, setFilterType] = useState<string>('all');
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingDoc, setEditingDoc] = useState<ContentDocument | null>(null);
   const { toast } = useToast();
 
-  useEffect(() => {
-    const fetchDocs = async () => {
-      setIsLoading(true);
-      const result = await getContentDocuments();
-      if (result.error) {
-        toast({ variant: 'destructive', title: 'Error', description: `Failed to load content documents: ${result.error}` });
-        setDocuments([]);
-      } else {
-        setDocuments(result.documents || []);
-      }
-      setIsLoading(false);
-    };
-    fetchDocs();
+  const fetchPageData = useCallback(async () => {
+    setIsLoading(true);
+    const [docsResult, typesResult] = await Promise.all([
+      getContentDocuments(),
+      getDocumentTypes(),
+    ]);
+
+    if (docsResult.error) {
+      toast({ variant: 'destructive', title: 'Error', description: `Failed to load content documents: ${docsResult.error}` });
+      setDocuments([]);
+    } else {
+      setDocuments(docsResult.documents || []);
+    }
+
+    if (typesResult.error) {
+      toast({ variant: 'destructive', title: 'Error', description: `Failed to load document types: ${typesResult.error}` });
+      setDocTypes([]);
+    } else {
+      setDocTypes(typesResult.types || []);
+    }
+
+    setIsLoading(false);
   }, [toast]);
+
+  useEffect(() => {
+    fetchPageData();
+  }, [fetchPageData]);
 
   const filteredDocuments = useMemo(() => {
     return documents.filter(doc => {
@@ -61,14 +81,7 @@ export default function RepositoryPage() {
 
   const handleSaveDoc = (doc: ContentDocument) => {
     toast({title: 'Document Saved', description: `"${doc.name}" has been processed successfully.`});
-    const existingIndex = documents.findIndex(d => d.id === doc.id);
-    if (existingIndex !== -1) {
-      const updated = [...documents];
-      updated[existingIndex] = doc;
-      setDocuments(updated);
-    } else {
-      setDocuments([doc, ...documents]);
-    }
+    fetchPageData(); // Refetch all data to ensure consistency
     setIsFormOpen(false);
     setEditingDoc(null);
   };
@@ -177,17 +190,15 @@ export default function RepositoryPage() {
             className="pl-10 w-full"
           />
         </div>
-        <Select value={filterType} onValueChange={(value: 'all' | ContentDocument['type']) => setFilterType(value)}>
+        <Select value={filterType} onValueChange={(value: string) => setFilterType(value)}>
           <SelectTrigger className="w-full sm:w-[180px]">
             <SelectValue placeholder="Filter by type" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Types</SelectItem>
-            <SelectItem value="LessonPlan">Lesson Plan</SelectItem>
-            <SelectItem value="Report">Report</SelectItem>
-            <SelectItem value="Resource">Resource</SelectItem>
-            <SelectItem value="Invoice">Invoice</SelectItem>
-            <SelectItem value="General">General Document</SelectItem>
+            {docTypes.map(type => (
+                <SelectItem key={type.id} value={type.name}>{type.name}</SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>

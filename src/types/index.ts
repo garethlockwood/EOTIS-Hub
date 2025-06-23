@@ -114,7 +114,7 @@ export interface FinancialDocument {
 
 export interface ContentDocument {
   id: string;
-  type: 'LessonPlan' | 'Report' | 'Resource' | 'Invoice' | 'General';
+  type: string;
   name: string;
   uploadDate: string;
   uploaderUid: string;
