@@ -187,33 +187,35 @@ export default function CalendarPage() {
         </Button>
       </PageHeader>
       
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div className="flex flex-col md:flex-row md:items-center gap-4">
         <Tabs defaultValue="dayGridMonth" onValueChange={(value) => {
             setView(value);
-        }} className="w-full md:w-auto">
-            <TabsList className="flex w-full md:w-[400px]">
+        }} className="w-full md:w-auto shrink-0">
+            <TabsList className="flex w-full md:w-auto">
             <TabsTrigger value="dayGridMonth" className="flex-1">Month</TabsTrigger>
             <TabsTrigger value="timeGridWeek" className="flex-1">Week</TabsTrigger>
             <TabsTrigger value="timeGridDay" className="flex-1">Day</TabsTrigger>
             </TabsList>
         </Tabs>
 
-        {view !== 'dayGridMonth' && (
-            <div className="flex items-center gap-3 w-full md:w-auto md:justify-end">
-                <Label htmlFor="view-hours-slider" className="min-w-max text-sm text-muted-foreground">
-                    View: {viewHours[0]}:00 - {viewHours[1]}:00
-                </Label>
-                <Slider
-                    id="view-hours-slider"
-                    value={viewHours}
-                    onValueChange={setViewHours}
-                    min={0}
-                    max={24}
-                    step={1}
-                    className="w-full max-w-[200px] md:max-w-[250px]"
-                />
-            </div>
-        )}
+        <div className="flex-1 w-full">
+            {view !== 'dayGridMonth' && (
+                <div className="flex items-center justify-start md:justify-end gap-3">
+                    <Label htmlFor="view-hours-slider" className="min-w-max text-sm text-muted-foreground shrink-0">
+                        View: {viewHours[0]}:00 - {viewHours[1]}:00
+                    </Label>
+                    <Slider
+                        id="view-hours-slider"
+                        value={viewHours}
+                        onValueChange={setViewHours}
+                        min={0}
+                        max={24}
+                        step={1}
+                        className="max-w-[250px]"
+                    />
+                </div>
+            )}
+        </div>
       </div>
       
       {renderContent()}
