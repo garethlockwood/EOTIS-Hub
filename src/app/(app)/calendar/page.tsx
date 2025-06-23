@@ -47,12 +47,9 @@ export default function CalendarPage() {
   }, [selectedStudent, fetchEvents]);
 
   const handleDateSelect = (selectInfo: DateSelectArg) => {
-    setDialogData({
-      start: selectInfo.start,
-      end: selectInfo.end,
-      allDay: selectInfo.allDay
-    });
-    setIsDialogOpen(true);
+    // This function is intentionally left blank.
+    // The "Add Event" button is the primary method for creating new events.
+    // This prevents the dialog from opening when a user simply clicks or drags on a date.
   };
 
   const handleEventClick = (clickInfo: EventClickArg) => {
