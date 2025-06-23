@@ -16,13 +16,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Calendar as ShadCalendar } from '@/components/ui/calendar';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, addHours, addMinutes } from 'date-fns';
 import type { CalendarEvent } from '@/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/hooks/use-auth';
 import { getCurrencySymbol } from '@/lib/utils';
 import { getTutorNames } from '@/app/(app)/staff/actions';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { ChevronUp, ChevronDown } from 'lucide-react';
 
 interface EventDialogProps {
   event?: CalendarEvent | null;
@@ -105,14 +106,27 @@ export function EventDialog({ event, date, studentId, isOpen, onOpenChange, onSa
     }
   };
   
-  const handleTimeChange = (e: React.ChangeEvent<HTMLInputElement>, field: 'start' | 'end') => {
-    const timeValue = e.target.value; // HH:mm
-    const [hours, minutes] = timeValue.split(':').map(Number);
-    const currentDate = formData[field] || new Date();
-    const newDate = new Date(currentDate);
-    newDate.setHours(hours);
-    newDate.setMinutes(minutes);
-    setFormData(prev => ({ ...prev, [field]: newDate }));
+  const handleTimeAdjust = (field: 'start' | 'end', unit: 'hours' | 'minutes', amount: number) => {
+    setFormData(prev => {
+      const originalDate = prev[field];
+      let newDate;
+
+      if (unit === 'hours') {
+        newDate = addHours(originalDate, amount);
+      } else { // minutes
+        newDate = addMinutes(originalDate, amount);
+      }
+      
+      // Basic validation
+      if (field === 'start' && newDate >= prev.end) {
+        return { ...prev, start: newDate, end: addMinutes(newDate, 15) };
+      }
+      if (field === 'end' && newDate <= prev.start) {
+        return prev; // Don't allow end time to be before start time
+      }
+      
+      return { ...prev, [field]: newDate };
+    });
   };
 
 
@@ -184,7 +198,29 @@ export function EventDialog({ event, date, studentId, isOpen, onOpenChange, onSa
                       onSelect={(d) => handleDateChange(d, 'start')}
                       className="rounded-md border"
                     />
-                    <Input type="time" value={format(formData.start, 'HH:mm')} onChange={(e) => handleTimeChange(e, 'start')} />
+                    <div className="flex items-center justify-center gap-1 p-2 rounded-md border bg-background">
+                        {/* Hours */}
+                        <div className="flex flex-col items-center gap-1">
+                            <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleTimeAdjust('start', 'hours', 1)} aria-label="Increase start hour">
+                                <ChevronUp className="h-4 w-4" />
+                            </Button>
+                            <span className="text-xl font-mono w-10 text-center" aria-label="Start hour">{format(formData.start, 'HH')}</span>
+                            <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleTimeAdjust('start', 'hours', -1)} aria-label="Decrease start hour">
+                                <ChevronDown className="h-4 w-4" />
+                            </Button>
+                        </div>
+                        <span className="text-2xl font-bold pb-2">:</span>
+                        {/* Minutes */}
+                        <div className="flex flex-col items-center gap-1">
+                            <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleTimeAdjust('start', 'minutes', 15)} aria-label="Increase start minute">
+                                <ChevronUp className="h-4 w-4" />
+                            </Button>
+                            <span className="text-xl font-mono w-10 text-center" aria-label="Start minute">{format(formData.start, 'mm')}</span>
+                            <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleTimeAdjust('start', 'minutes', -15)} aria-label="Decrease start minute">
+                                <ChevronDown className="h-4 w-4" />
+                            </Button>
+                        </div>
+                    </div>
                   </div>
                   <div className="space-y-2">
                     <Label>End Date &amp; Time</Label>
@@ -194,7 +230,29 @@ export function EventDialog({ event, date, studentId, isOpen, onOpenChange, onSa
                       onSelect={(d) => handleDateChange(d, 'end')}
                       className="rounded-md border"
                     />
-                    <Input type="time" value={format(formData.end, 'HH:mm')} onChange={(e) => handleTimeChange(e, 'end')} />
+                     <div className="flex items-center justify-center gap-1 p-2 rounded-md border bg-background">
+                        {/* Hours */}
+                        <div className="flex flex-col items-center gap-1">
+                            <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleTimeAdjust('end', 'hours', 1)} aria-label="Increase end hour">
+                                <ChevronUp className="h-4 w-4" />
+                            </Button>
+                            <span className="text-xl font-mono w-10 text-center" aria-label="End hour">{format(formData.end, 'HH')}</span>
+                            <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleTimeAdjust('end', 'hours', -1)} aria-label="Decrease end hour">
+                                <ChevronDown className="h-4 w-4" />
+                            </Button>
+                        </div>
+                        <span className="text-2xl font-bold pb-2">:</span>
+                        {/* Minutes */}
+                        <div className="flex flex-col items-center gap-1">
+                            <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleTimeAdjust('end', 'minutes', 15)} aria-label="Increase end minute">
+                                <ChevronUp className="h-4 w-4" />
+                            </Button>
+                            <span className="text-xl font-mono w-10 text-center" aria-label="End minute">{format(formData.end, 'mm')}</span>
+                            <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleTimeAdjust('end', 'minutes', -15)} aria-label="Decrease end minute">
+                                <ChevronDown className="h-4 w-4" />
+                            </Button>
+                        </div>
+                    </div>
                   </div>
                 </div>
               </AccordionContent>
