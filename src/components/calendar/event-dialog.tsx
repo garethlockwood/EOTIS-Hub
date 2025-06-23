@@ -14,6 +14,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -25,6 +36,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useAuth } from '@/hooks/use-auth';
 import { getCurrencySymbol } from '@/lib/utils';
 import { getTutorNames } from '@/app/(app)/staff/actions';
+import { Trash2 } from 'lucide-react';
 
 const eventFormSchema = z.object({
   title: z.string().min(1, 'Title is required.'),
@@ -43,14 +55,15 @@ const eventFormSchema = z.object({
 type EventFormValues = z.infer<typeof eventFormSchema>;
 
 interface EventDialogProps {
-  event?: CalendarEvent | null;
+  event?: Partial<CalendarEvent> | null;
   studentId?: string | null;
   isOpen?: boolean;
   onOpenChange?: (open: boolean) => void;
   onSave: (event: Omit<CalendarEvent, 'id'> & { id?: string }) => void;
+  onDelete?: (eventId: string) => void;
 }
 
-export function EventDialog({ event, studentId, isOpen, onOpenChange, onSave }: EventDialogProps) {
+export function EventDialog({ event, studentId, isOpen, onOpenChange, onSave, onDelete }: EventDialogProps) {
   const { currency } = useAuth();
   const [tutorList, setTutorList] = useState<string[]>([]);
 
@@ -76,12 +89,23 @@ export function EventDialog({ event, studentId, isOpen, onOpenChange, onSave }: 
         reset({
           title: event.title || '',
           allDay: event.allDay || false,
-          start: typeof event.start === 'string' ? parseISO(event.start) : event.start,
-          end: typeof event.end === 'string' ? parseISO(event.end) : event.end,
+          start: event.start ? (typeof event.start === 'string' ? parseISO(event.start) : event.start) : new Date(),
+          end: event.end ? (typeof event.end === 'string' ? parseISO(event.end) : event.end) : new Date(Date.now() + 3600000),
           tutorName: event.tutorName || '',
           cost: event.cost || 0,
           meetingLink: event.meetingLink || '',
           description: event.description || '',
+        });
+    } else if (!isOpen) {
+        reset({ // Reset to default when closing
+            title: '',
+            allDay: false,
+            start: new Date(),
+            end: new Date(Date.now() + 3600000),
+            tutorName: '',
+            cost: 0,
+            meetingLink: '',
+            description: '',
         });
     }
   }, [event, isOpen, reset]);
@@ -118,6 +142,7 @@ export function EventDialog({ event, studentId, isOpen, onOpenChange, onSave }: 
 
   const onSubmit: SubmitHandler<EventFormValues> = (data) => {
     const submissionData = {
+      ...event,
       ...data,
       id: event?.id,
       studentId,
@@ -189,7 +214,7 @@ export function EventDialog({ event, studentId, isOpen, onOpenChange, onSave }: 
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Tutor</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value || ' '}>
                     <FormControl><SelectTrigger><SelectValue placeholder="Select a tutor" /></SelectTrigger></FormControl>
                     <SelectContent>
                       <SelectItem value=" ">None</SelectItem>
@@ -237,9 +262,32 @@ export function EventDialog({ event, studentId, isOpen, onOpenChange, onSave }: 
               )}
             />
 
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => onOpenChange && onOpenChange(false)}>Cancel</Button>
-              <Button type="submit">Save Event</Button>
+            <DialogFooter className="sm:justify-between">
+                <div>
+                {event?.id && onDelete && (
+                    <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                            <Button type="button" variant="destructive" className="mr-auto">
+                                <Trash2 className="mr-2 h-4 w-4" /> Delete
+                            </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                <AlertDialogDescription>This will permanently delete the event "{event.title}". This action cannot be undone.</AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => onDelete(event.id!)} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
+                )}
+                </div>
+                <div className="flex gap-2">
+                    <Button type="button" variant="outline" onClick={() => onOpenChange && onOpenChange(false)}>Cancel</Button>
+                    <Button type="submit">Save Event</Button>
+                </div>
             </DialogFooter>
           </form>
         </Form>

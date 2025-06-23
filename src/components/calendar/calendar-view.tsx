@@ -1,48 +1,22 @@
+
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
-import { EventClickArg, DateSelectArg } from '@fullcalendar/core';
+import type { EventClickArg, DateSelectArg, EventChangeArg, EventInput } from '@fullcalendar/core';
 
 interface CalendarViewProps {
   view: string;
+  events: EventInput[];
+  onDateSelect: (selectInfo: DateSelectArg) => void;
+  onEventClick: (clickInfo: EventClickArg) => void;
+  onEventChange: (changeInfo: EventChangeArg) => void;
 }
 
-export default function CalendarView({ view }: CalendarViewProps) {
-  const [events, setEvents] = useState([
-    {
-      id: '1',
-      title: 'Maths',
-      start: new Date().toISOString(),
-      end: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
-    },
-  ]);
-
-  const handleDateSelect = (selectInfo: DateSelectArg) => {
-    const title = prompt('New event title');
-    const calendarApi = selectInfo.view.calendar;
-    calendarApi.unselect();
-
-    if (title) {
-      const newEvent = {
-        id: String(events.length + 1),
-        title,
-        start: selectInfo.startStr,
-        end: selectInfo.endStr,
-      };
-      setEvents([...events, newEvent]);
-    }
-  };
-
-  const handleEventClick = (clickInfo: EventClickArg) => {
-    if (confirm(`Delete event '${clickInfo.event.title}'?`)) {
-      setEvents(events.filter(e => e.id !== clickInfo.event.id));
-    }
-  };
-
+export default function CalendarView({ view, events, onDateSelect, onEventClick, onEventChange }: CalendarViewProps) {
   return (
     <div className="p-4">
       <FullCalendar
@@ -56,8 +30,9 @@ export default function CalendarView({ view }: CalendarViewProps) {
         selectable={true}
         editable={true}
         events={events}
-        select={handleDateSelect}
-        eventClick={handleEventClick}
+        select={onDateSelect}
+        eventClick={onEventClick}
+        eventChange={onEventChange} // Handles drag/drop & resize
         height="auto"
       />
     </div>
