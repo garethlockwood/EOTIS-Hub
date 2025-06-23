@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -36,6 +36,7 @@ export function EhcpUploadDialog({ isOpen, onOpenChange, onUploadComplete, trigg
   const [fileName, setFileName] = useState('');
   const [description, setDescription] = useState('');
   const [status, setStatus] = useState<'Current' | 'Previous'>('Current');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -64,8 +65,9 @@ export function EhcpUploadDialog({ isOpen, onOpenChange, onUploadComplete, trigg
     setFileName('');
     setDescription('');
     setStatus('Current');
-    const fileInput = document.getElementById('ehcpFile') as HTMLInputElement;
-    if (fileInput) fileInput.value = "";
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -120,7 +122,7 @@ export function EhcpUploadDialog({ isOpen, onOpenChange, onUploadComplete, trigg
         <form onSubmit={handleSubmit} className="grid gap-6 py-4">
           <div>
             <Label htmlFor="ehcpFile">Document File (PDF or DOCX)</Label>
-            <Input id="ehcpFile" type="file" onChange={handleFileChange} className="mt-1" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" required />
+            <Input ref={fileInputRef} id="ehcpFile" type="file" onChange={handleFileChange} className="mt-1" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" required />
           </div>
           
           <div>

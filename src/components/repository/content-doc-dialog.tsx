@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -43,6 +43,7 @@ export function ContentDocDialog({ isOpen, onOpenChange, onSave, document, assoc
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [formState, setFormState] = useState(initialFormState);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (isOpen) { // Only reset/populate form when dialog is opened
@@ -97,8 +98,9 @@ export function ContentDocDialog({ isOpen, onOpenChange, onSave, document, assoc
   const resetForm = () => {
     setSelectedFile(null);
     setFormState(initialFormState);
-    const fileInput = document.getElementById('contentFile') as HTMLInputElement;
-    if (fileInput) fileInput.value = "";
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -169,7 +171,7 @@ export function ContentDocDialog({ isOpen, onOpenChange, onSave, document, assoc
           {!document && (
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="contentFile" className="text-right">File*</Label>
-              <Input id="contentFile" type="file" onChange={handleFileChange} className="col-span-3" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" required={!document} />
+              <Input ref={fileInputRef} id="contentFile" type="file" onChange={handleFileChange} className="col-span-3" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" required={!document} />
             </div>
           )}
           
