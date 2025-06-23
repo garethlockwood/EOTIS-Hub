@@ -165,12 +165,10 @@ export default function CalendarPage() {
   };
 
   const navigateDate = (offset: number) => {
-    if (currentView === 'day') {
+    if (currentView === 'day' || currentView === 'month') {
       setSelectedDate(prev => addDays(prev, offset));
     } else if (currentView === 'week') {
       setSelectedDate(prev => addDays(prev, offset * 7));
-    } else if (currentView === 'month') {
-      setSelectedDate(prev => addMonths(prev, offset));
     }
   };
   
@@ -236,13 +234,13 @@ export default function CalendarPage() {
               </TabsList>
 
               <div className="flex items-center gap-1 ml-auto md:ml-0">
-                 <Button variant="outline" size="icon" onClick={() => navigateDate(-1)} title={currentView === 'day' ? "Previous Day" : currentView === 'week' ? "Previous Week" : "Previous Month"}>
+                 <Button variant="outline" size="icon" onClick={() => navigateDate(-1)} title={currentView === 'week' ? "Previous Week" : "Previous Day"}>
                     <ChevronLeft className="h-4 w-4" />
                 </Button>
                 <Button variant="outline" size="sm" onClick={goToToday} className="hidden sm:inline-flex items-center">
                     <TodayIcon className="mr-1 h-4 w-4" /> Today
                 </Button>
-                 <Button variant="outline" size="icon" onClick={() => navigateDate(1)} title={currentView === 'day' ? "Next Day" : currentView === 'week' ? "Next Week" : "Next Month"}>
+                 <Button variant="outline" size="icon" onClick={() => navigateDate(1)} title={currentView === 'week' ? "Next Week" : "Next Day"}>
                     <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
@@ -285,7 +283,7 @@ export default function CalendarPage() {
                     {eventsForSelectedDayInMonthView.length > 0 ? (
                       <ul className="space-y-3">
                         {eventsForSelectedDayInMonthView.map(event => (
-                          <li key={event.id} className="p-3 bg-muted/50 rounded-md shadow-sm">
+                          <li key={event.id} className="p-3 bg-muted/50 rounded-md shadow-sm hover:bg-secondary transition-colors">
                             <div className="flex justify-between items-start">
                               <div>
                                 <h4 className="font-semibold font-body">{event.title}</h4>
