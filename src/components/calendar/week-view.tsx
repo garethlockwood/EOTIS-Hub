@@ -100,7 +100,7 @@ export function WeekView({
       </div>
       
       <ScrollArea className="flex-1">
-        <div className="relative grid grid-cols-[auto_1fr]">
+        <div className="relative grid grid-cols-[auto_1fr] isolate">
           {/* Time Gutter */}
           <div 
             className="row-start-1 col-start-1 bg-background pr-2 pt-[calc(var(--hour-height)/2-8px)] sticky left-0 z-10" 
@@ -118,18 +118,23 @@ export function WeekView({
           </div>
 
           {/* Events Grid */}
-          <div className="col-start-2 grid grid-cols-7 relative">
-            {/* Background lines */}
-            {days.map((day, dayIndex) => (
-                <div key={day.toISOString()} className="relative border-r last:border-r-0">
-                    {timeSlots.map(hour => (
-                        <div
-                        key={`line-${dayIndex}-${hour}`}
-                        className="h-[var(--hour-height)] border-b"
-                        style={{ '--hour-height': `${hourHeight}px` } as React.CSSProperties}
-                        ></div>
-                    ))}
-                </div>
+          <div className="col-start-2 relative">
+             {/* Horizontal Hour Lines */}
+             {timeSlots.map(hour => (
+                <div
+                    key={`line-h-${hour}`}
+                    className="h-[var(--hour-height)] border-b"
+                    style={{ '--hour-height': `${hourHeight}px` } as React.CSSProperties}
+                ></div>
+            ))}
+            
+            {/* Vertical Day Lines */}
+            {days.slice(0, 6).map((_, dayIndex) => (
+                 <div 
+                    key={`line-v-${dayIndex}`}
+                    className="absolute top-0 bottom-0 border-r"
+                    style={{ left: `${(dayIndex + 1) * (100 / 7)}%` }}
+                 ></div>
             ))}
 
             {/* Render Events */}
