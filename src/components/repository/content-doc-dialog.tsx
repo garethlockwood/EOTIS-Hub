@@ -16,7 +16,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { addContentDocument } from '@/app/(app)/repository/actions';
+import { addContentDocument, updateContentDocument } from '@/app/(app)/repository/actions';
 import { getDocumentTypes, addDocumentType, deleteDocumentType } from '@/app/(app)/repository/typeActions';
 import type { ContentDocument } from '@/types';
 import { Loader2, UploadCloud, Tag, X, Plus } from 'lucide-react';
@@ -160,9 +160,10 @@ export function ContentDocDialog({ isOpen, onOpenChange, onSave, document, assoc
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user?.id || !user.isAdmin) {
-      toast({ variant: 'destructive', title: 'Permission Denied', description: 'Only admins can upload documents.' });
+      toast({ variant: 'destructive', title: 'Permission Denied', description: 'Only admins can manage documents.' });
       return;
     }
+
     if (!selectedFile && !document) {
       toast({ variant: 'destructive', title: 'Missing File', description: 'Please select a file to upload.' });
       return;
@@ -173,30 +174,45 @@ export function ContentDocDialog({ isOpen, onOpenChange, onSave, document, assoc
     }
     setIsSubmitting(true);
 
-    const formDataPayload = new FormData();
-    if (selectedFile) formDataPayload.append('file', selectedFile);
-    if (associatedUserId) formDataPayload.append('associatedUserId', associatedUserId);
-    formDataPayload.append('name', formState.name.trim());
-    formDataPayload.append('description', formState.description.trim());
-    formDataPayload.append('type', formState.type);
-    formDataPayload.append('version', formState.version.trim() || '1.0');
-    formDataPayload.append('tags', formState.tags.trim());
-
     if (document) {
-      toast({ title: 'Edit functionality pending', description: 'Document editing is not fully implemented yet.', variant: 'default' });
-      setIsSubmitting(false);
-      onOpenChange(false);
-      return;
-    }
+      // Logic for UPDATING a document
+      const updates = {
+          name: formState.name.trim(),
+          description: formState.description.trim(),
+          type: formState.type,
+          version: formState.version.trim() || '1.0',
+          tags: formState.tags.split(',').map(tag => tag.trim()).filter(Boolean),
+      };
 
-    const result = await addContentDocument(formDataPayload, user.id);
-
-    if (result.success && result.document) {
-      toast({ title: 'Upload Successful', description: `"${result.document.name}" has been uploaded.` });
-      onSave(result.document);
-      onOpenChange(false);
+      const result = await updateContentDocument(document.id, updates, user.id);
+      
+      if (result.success && result.document) {
+          toast({ title: 'Update Successful', description: `"${result.document.name}" has been updated.` });
+          onSave(result.document);
+          onOpenChange(false);
+      } else {
+          toast({ variant: 'destructive', title: 'Update Failed', description: result.error || 'An unknown error occurred.' });
+      }
     } else {
-      toast({ variant: 'destructive', title: 'Upload Failed', description: result.error || 'An unknown error occurred.' });
+      // Logic for ADDING a new document
+      const formDataPayload = new FormData();
+      if (selectedFile) formDataPayload.append('file', selectedFile);
+      if (associatedUserId) formDataPayload.append('associatedUserId', associatedUserId);
+      formDataPayload.append('name', formState.name.trim());
+      formDataPayload.append('description', formState.description.trim());
+      formDataPayload.append('type', formState.type);
+      formDataPayload.append('version', formState.version.trim() || '1.0');
+      formDataPayload.append('tags', formState.tags.trim());
+
+      const result = await addContentDocument(formDataPayload, user.id);
+
+      if (result.success && result.document) {
+        toast({ title: 'Upload Successful', description: `"${result.document.name}" has been uploaded.` });
+        onSave(result.document);
+        onOpenChange(false);
+      } else {
+        toast({ variant: 'destructive', title: 'Upload Failed', description: result.error || 'An unknown error occurred.' });
+      }
     }
     setIsSubmitting(false);
   };

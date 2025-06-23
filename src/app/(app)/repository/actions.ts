@@ -36,7 +36,7 @@ export async function getContentDocuments(): Promise<{ documents?: ContentDocume
         id: docSnap.id,
         type: data.type,
         name: data.name,
-        uploadDate: data.uploadDate.toDate().toISOString(),
+        uploadDate: (data.uploadDate as Timestamp).toDate().toISOString(),
         uploaderUid: data.uploaderUid,
         uploaderName: data.uploaderName,
         uploaderRole: data.uploaderRole,
@@ -128,5 +128,57 @@ export async function addContentDocument(formData: FormData, actingAdminUserId: 
   } catch (err: any) {
     console.error('Upload failed:', err);
     return { error: err.message || 'Upload failed.' };
+  }
+}
+
+export async function updateContentDocument(
+  docId: string,
+  updates: Partial<Omit<ContentDocument, 'id' | 'fileUrl' | 'storagePath' | 'fileType' | 'uploaderUid' | 'uploaderName' | 'uploaderRole' | 'uploadDate'>>,
+  actingAdminUserId: string
+): Promise<{ success?: boolean; error?: string; document?: ContentDocument }> {
+  if (!actingAdminUserId || !(await isAdmin(actingAdminUserId))) {
+    return { error: 'Admin privileges required to update documents.' };
+  }
+
+  if (!docId) {
+    return { error: 'Document ID is required for an update.' };
+  }
+
+  try {
+    const docRef = dbAdmin.collection('contentDocuments').doc(docId);
+    
+    const updatePayload: any = { ...updates };
+    delete updatePayload.id;
+
+    await docRef.update(updatePayload);
+    revalidatePath('/repository');
+
+    const updatedDocSnap = await docRef.get();
+    if (!updatedDocSnap.exists) {
+      return { error: 'Failed to retrieve the updated document.' };
+    }
+    const updatedData = updatedDocSnap.data()!;
+
+    const returnedDocument: ContentDocument = {
+      id: updatedDocSnap.id,
+      type: updatedData.type,
+      name: updatedData.name,
+      uploadDate: (updatedData.uploadDate as Timestamp).toDate().toISOString(),
+      uploaderUid: updatedData.uploaderUid,
+      uploaderName: updatedData.uploaderName,
+      uploaderRole: updatedData.uploaderRole,
+      description: updatedData.description,
+      fileUrl: updatedData.fileUrl,
+      storagePath: updatedData.storagePath,
+      fileType: updatedData.fileType,
+      version: updatedData.version,
+      tags: updatedData.tags,
+      associatedUserId: updatedData.associatedUserId,
+    };
+
+    return { success: true, document: returnedDocument };
+  } catch (err: any) {
+    console.error('[updateContentDocument] Update failed:', err);
+    return { error: err.message || 'Update failed.' };
   }
 }
