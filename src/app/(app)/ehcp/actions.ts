@@ -1,3 +1,4 @@
+
 'use server';
 
 import { Timestamp } from 'firebase-admin/firestore';
@@ -95,7 +96,10 @@ export async function addEhcpDocument(
 
     await unlink(tempFilePath);
 
-    const downloadURL = `https://storage.googleapis.com/${bucket.name}/${storagePath}`;
+    const [downloadURL] = await bucket.file(storagePath).getSignedUrl({
+        action: 'read',
+        expires: '03-09-2491', // Far future date
+    });
 
     const uploaderDoc = await dbAdmin.collection('users').doc(actingAdminUserId).get();
     const uploaderName = uploaderDoc.exists
