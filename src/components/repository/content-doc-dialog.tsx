@@ -17,11 +17,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { addContentDocument, updateContentDocument } from '@/app/(app)/repository/actions';
-import { getDocumentTypes, addDocumentType, deleteDocumentType } from '@/app/(app)/repository/typeActions';
+import { getDocumentTypes, addDocumentType } from '@/app/(app)/repository/typeActions';
 import type { ContentDocument } from '@/types';
 import { Loader2, UploadCloud, Tag, X, Plus } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../ui/alert-dialog';
 import { Separator } from '../ui/separator';
 
 interface DocumentType {
@@ -35,6 +34,7 @@ interface ContentDocDialogProps {
   onSave: (doc: ContentDocument) => void;
   document?: ContentDocument | null;
   associatedUserId?: string;
+  onTypeDelete: (type: DocumentType) => void;
 }
 
 const initialFormState = {
@@ -45,7 +45,7 @@ const initialFormState = {
   tags: '',
 };
 
-export function ContentDocDialog({ isOpen, onOpenChange, onSave, document, associatedUserId }: ContentDocDialogProps) {
+export function ContentDocDialog({ isOpen, onOpenChange, onSave, document, associatedUserId, onTypeDelete }: ContentDocDialogProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -56,10 +56,6 @@ export function ContentDocDialog({ isOpen, onOpenChange, onSave, document, assoc
   const [docTypes, setDocTypes] = useState<DocumentType[]>([]);
   const [newTypeName, setNewTypeName] = useState('');
   const [isManagingTypes, setIsManagingTypes] = useState(false);
-
-  // New state to manage the delete confirmation dialog
-  const [typeToDelete, setTypeToDelete] = useState<DocumentType | null>(null);
-
 
   const fetchTypes = useCallback(async () => {
     const result = await getDocumentTypes();
@@ -145,22 +141,7 @@ export function ContentDocDialog({ isOpen, onOpenChange, onSave, document, assoc
     }
     setIsManagingTypes(false);
   };
-
-  const handleDeleteType = async (typeId: string, typeName: string) => {
-    setIsManagingTypes(true);
-    const result = await deleteDocumentType(typeId, typeName);
-    if (result.success) {
-      toast({ title: 'Type Deleted', description: `"${typeName}" has been deleted.` });
-      if (formState.type === typeName) {
-        setFormState(prev => ({ ...prev, type: '' }));
-      }
-      await fetchTypes();
-    } else {
-      toast({ variant: 'destructive', title: 'Failed to Delete Type', description: result.error });
-    }
-    setIsManagingTypes(false);
-  };
-
+  
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user?.id || !user.isAdmin) {
@@ -222,7 +203,6 @@ export function ContentDocDialog({ isOpen, onOpenChange, onSave, document, assoc
   };
 
   return (
-    <>
       <Dialog open={isOpen} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-[580px]">
           <DialogHeader>
@@ -266,7 +246,7 @@ export function ContentDocDialog({ isOpen, onOpenChange, onSave, document, assoc
                         onClick={(e) => { 
                           e.preventDefault(); 
                           e.stopPropagation(); 
-                          setTypeToDelete(docType);
+                          onTypeDelete(docType);
                         }}
                         disabled={isManagingTypes}
                       >
@@ -324,31 +304,5 @@ export function ContentDocDialog({ isOpen, onOpenChange, onSave, document, assoc
           </form>
         </DialogContent>
       </Dialog>
-      
-      {typeToDelete && (
-        <AlertDialog open={!!typeToDelete} onOpenChange={(open) => !open && setTypeToDelete(null)}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Delete "{typeToDelete.name}"?</AlertDialogTitle>
-              <AlertDialogDescription>
-                This action cannot be undone. Are you sure you want to permanently delete this document type? This will fail if the type is in use.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel onClick={() => setTypeToDelete(null)}>Cancel</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={() => {
-                  handleDeleteType(typeToDelete.id, typeToDelete.name);
-                  setTypeToDelete(null);
-                }}
-                className="bg-destructive hover:bg-destructive/90"
-              >
-                Delete
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      )}
-    </>
   );
 }

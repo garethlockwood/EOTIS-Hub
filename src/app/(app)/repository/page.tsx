@@ -15,9 +15,10 @@ import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import type { ContentDocument } from '@/types';
 import { getContentDocuments } from './actions';
-import { getDocumentTypes } from './typeActions'; // Import action to get types
+import { getDocumentTypes, addDocumentType, deleteDocumentType } from './typeActions'; // Import action to get types
 import { ContentDocDialog } from '@/components/repository/content-doc-dialog';
 import { useStudent } from '@/hooks/use-student';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 
 interface DocumentType {
   id: string;
@@ -35,6 +36,8 @@ export default function RepositoryPage() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingDoc, setEditingDoc] = useState<ContentDocument | null>(null);
   const { toast } = useToast();
+  
+  const [typeToDelete, setTypeToDelete] = useState<DocumentType | null>(null);
 
   const fetchPageData = useCallback(async () => {
     setIsLoading(true);
@@ -63,6 +66,18 @@ export default function RepositoryPage() {
   useEffect(() => {
     fetchPageData();
   }, [fetchPageData]);
+
+  const handleDeleteType = async (typeId: string, typeName: string) => {
+    const result = await deleteDocumentType(typeId, typeName);
+    if (result.success) {
+      toast({ title: 'Type Deleted', description: `"${typeName}" has been deleted.` });
+      // Refetch types to update the dropdown
+      fetchPageData();
+    } else {
+      toast({ variant: 'destructive', title: 'Failed to Delete Type', description: result.error });
+    }
+  };
+
 
   const filteredDocuments = useMemo(() => {
     return documents.filter(doc => {
@@ -126,7 +141,15 @@ export default function RepositoryPage() {
                 {filteredDocuments.length > 0 ? (
                   filteredDocuments.map(doc => (
                     <TableRow key={doc.id}>
-                      <TableCell className="font-medium">{doc.name}</TableCell>
+                      <TableCell className="font-medium">
+                        {doc.fileUrl ? (
+                          <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="hover:underline text-primary">
+                            {doc.name}
+                          </a>
+                        ) : (
+                          <span>{doc.name}</span>
+                        )}
+                      </TableCell>
                       <TableCell><Badge variant="secondary">{doc.type}</Badge></TableCell>
                       <TableCell>{format(new Date(doc.uploadDate), 'PPP')}</TableCell>
                       <TableCell className="max-w-xs truncate text-sm text-muted-foreground">{doc.description || 'N/A'}</TableCell>
@@ -211,7 +234,34 @@ export default function RepositoryPage() {
         document={editingDoc} 
         onSave={handleSaveDoc}
         associatedUserId={selectedStudent?.id}
+        onTypeDelete={(type) => setTypeToDelete(type)}
       />
+      
+      <AlertDialog open={!!typeToDelete} onOpenChange={(open) => !open && setTypeToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete "{typeToDelete?.name}"?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. Are you sure you want to permanently delete this document type? This will fail if the type is in use.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setTypeToDelete(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (typeToDelete) {
+                  // Call handleDeleteType with non-null arguments
+                  handleDeleteType(typeToDelete.id, typeToDelete.name);
+                }
+                setTypeToDelete(null);
+              }}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
