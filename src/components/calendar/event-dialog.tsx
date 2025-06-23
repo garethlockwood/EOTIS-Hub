@@ -108,7 +108,7 @@ export function EventDialog({ event, studentId, isOpen, onOpenChange, onSave }: 
         });
       }
     }
-  }, [event, isOpen]);
+  }, [event, isOpen, form.reset]);
 
   const handleAllDayToggle = (checked: boolean) => {
     const currentStart = form.getValues('start');
