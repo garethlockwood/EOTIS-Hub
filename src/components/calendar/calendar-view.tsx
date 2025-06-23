@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState } from 'react';
@@ -8,7 +7,11 @@ import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import { EventClickArg, DateSelectArg } from '@fullcalendar/core';
 
-export default function CalendarView() {
+interface CalendarViewProps {
+  view: string;
+}
+
+export default function CalendarView({ view }: CalendarViewProps) {
   const [events, setEvents] = useState([
     {
       id: '1',
@@ -44,7 +47,12 @@ export default function CalendarView() {
     <div className="p-4">
       <FullCalendar
         plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-        initialView="timeGridWeek"
+        initialView={view}
+        headerToolbar={{
+          left: 'prev,next today',
+          center: 'title',
+          right: '', // We use our own tabs for view switching
+        }}
         selectable={true}
         editable={true}
         events={events}
