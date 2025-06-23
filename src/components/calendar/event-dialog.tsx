@@ -15,8 +15,6 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon } from 'lucide-react';
 import { Calendar as ShadCalendar } from '@/components/ui/calendar';
 import { format, parseISO } from 'date-fns';
 import type { CalendarEvent } from '@/types';
@@ -24,6 +22,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useAuth } from '@/hooks/use-auth';
 import { getCurrencySymbol } from '@/lib/utils';
 import { getTutorNames } from '@/app/(app)/staff/actions';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 interface EventDialogProps {
   event?: CalendarEvent | null;
@@ -159,54 +158,49 @@ export function EventDialog({ event, date, studentId, isOpen, onOpenChange, onSa
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
-      <DialogContent className="sm:max-w-[525px]">
+      <DialogContent className="sm:max-w-[620px]">
         <DialogHeader>
           <DialogTitle className="font-headline">{event ? 'Edit Event' : 'Add New Event'}</DialogTitle>
           <DialogDescription>
             {event ? 'Update the details of your event.' : 'Fill in the details for your new lesson or meeting.'}
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="grid gap-4 py-4">
+        <form onSubmit={handleSubmit} className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="title" className="text-right">Title/Subject</Label>
             <Input id="title" name="title" value={formData.title} onChange={handleInputChange} className="col-span-3" required />
           </div>
           
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="startDate" className="text-right">Start Date</Label>
-            <div className="col-span-3 flex gap-2">
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-full justify-start text-left font-normal">
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {formData.start ? format(formData.start, 'PPP') : <span>Pick a date</span>}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
-                  <ShadCalendar mode="single" selected={formData.start} onSelect={(d) => handleDateChange(d, 'start')} initialFocus />
-                </PopoverContent>
-              </Popover>
-              <Input type="time" value={format(formData.start, 'HH:mm')} onChange={(e) => handleTimeChange(e, 'start')} className="w-[120px]" />
-            </div>
-          </div>
+          <Accordion type="single" collapsible className="w-full" defaultValue="item-1">
+            <AccordionItem value="item-1">
+              <AccordionTrigger className="text-sm font-medium">Date &amp; Time</AccordionTrigger>
+              <AccordionContent>
+                <div className="grid md:grid-cols-2 gap-4 pt-2">
+                  <div className="space-y-2">
+                    <Label>Start Date &amp; Time</Label>
+                    <ShadCalendar
+                      mode="single"
+                      selected={formData.start}
+                      onSelect={(d) => handleDateChange(d, 'start')}
+                      className="rounded-md border"
+                    />
+                    <Input type="time" value={format(formData.start, 'HH:mm')} onChange={(e) => handleTimeChange(e, 'start')} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>End Date &amp; Time</Label>
+                    <ShadCalendar
+                      mode="single"
+                      selected={formData.end}
+                      onSelect={(d) => handleDateChange(d, 'end')}
+                      className="rounded-md border"
+                    />
+                    <Input type="time" value={format(formData.end, 'HH:mm')} onChange={(e) => handleTimeChange(e, 'end')} />
+                  </div>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
 
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="endDate" className="text-right">End Date</Label>
-            <div className="col-span-3 flex gap-2">
-               <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-full justify-start text-left font-normal">
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {formData.end ? format(formData.end, 'PPP') : <span>Pick a date</span>}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
-                  <ShadCalendar mode="single" selected={formData.end} onSelect={(d) => handleDateChange(d, 'end')} initialFocus />
-                </PopoverContent>
-              </Popover>
-              <Input type="time" value={format(formData.end, 'HH:mm')} onChange={(e) => handleTimeChange(e, 'end')} className="w-[120px]" />
-            </div>
-          </div>
 
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="tutorName" className="text-right">Tutor</Label>
@@ -240,7 +234,7 @@ export function EventDialog({ event, date, studentId, isOpen, onOpenChange, onSa
             <Label htmlFor="description" className="text-right pt-2">Description</Label>
             <Textarea id="description" name="description" value={formData.description} onChange={handleInputChange} className="col-span-3 min-h-[80px] font-ptsans" placeholder="Optional: Add notes or details about the lesson/meeting." />
           </div>
-        <DialogFooter>
+        <DialogFooter className="sticky bottom-0 bg-background py-4 border-t -mx-6 px-6">
           <Button type="button" variant="outline" onClick={() => { if (onOpenChange) onOpenChange(false); else setOpen(false); }}>Cancel</Button>
           <Button type="submit">Save Event</Button>
         </DialogFooter>
