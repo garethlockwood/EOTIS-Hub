@@ -28,8 +28,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-// Placeholder for Add/Edit Financial Document Dialog (future implementation)
-// import { FinancialDocDialog } from '@/components/finances/financial-doc-dialog';
+import { FinancialDocDialog } from '@/components/finances/financial-doc-dialog';
 
 export default function FinancesPage() {
   const { user, currency } = useAuth();
@@ -42,8 +41,8 @@ export default function FinancesPage() {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'all' | FinancialDocument['type']>('all');
-  // const [isFormOpen, setIsFormOpen] = useState(false);
-  // const [editingDoc, setEditingDoc] = useState<FinancialDocument | null>(null);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingDoc, setEditingDoc] = useState<FinancialDocument | null>(null);
 
   const fetchDocuments = useCallback(async () => {
     if (!selectedStudent?.id) {
@@ -101,12 +100,11 @@ export default function FinancesPage() {
     setIsDeleting(null);
   };
   
-  // const handleSaveDoc = (doc: FinancialDocument) => {
-  //   // Placeholder for save logic
-  //   console.log("Saving document:", doc);
-  //   setIsFormOpen(false);
-  //   setEditingDoc(null);
-  // };
+  const handleSaveDoc = () => {
+    setIsFormOpen(false);
+    setEditingDoc(null);
+    fetchDocuments();
+  };
 
   const renderContent = () => {
     if (studentIsLoading || isLoading) {
@@ -214,7 +212,7 @@ export default function FinancesPage() {
   return (
     <>
       <PageHeader title="Financial Section" description="Manage invoices, receipts, and financial reports.">
-        <Button disabled> {/* onClick={() => { setEditingDoc(null); setIsFormOpen(true); }} */}
+        <Button onClick={() => { setEditingDoc(null); setIsFormOpen(true); }} disabled={!user?.isAdmin || !selectedStudent}>
           <PlusCircle className="mr-2 h-4 w-4" /> Add Document
         </Button>
       </PageHeader>
@@ -246,14 +244,15 @@ export default function FinancesPage() {
 
       {renderContent()}
       
-      {/* 
-      <FinancialDocDialog 
-        isOpen={isFormOpen} 
-        onOpenChange={setIsFormOpen} 
-        document={editingDoc} 
-        onSave={handleSaveDoc} 
-      /> 
-      */}
+      {selectedStudent && (
+        <FinancialDocDialog 
+          isOpen={isFormOpen} 
+          onOpenChange={setIsFormOpen} 
+          document={editingDoc} 
+          onSave={handleSaveDoc}
+          studentId={selectedStudent.id}
+        />
+      )}
     </>
   );
 }

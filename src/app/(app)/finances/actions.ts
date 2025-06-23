@@ -4,10 +4,24 @@
 import type { FinancialDocument } from '@/types';
 import { Timestamp } from 'firebase-admin/firestore';
 import { revalidatePath } from 'next/cache';
+import { tmpdir } from 'os';
+import { writeFile, unlink } from 'fs/promises';
+import path from 'path';
 
 const { dbAdmin, storageAdmin } = await import('@/lib/firebase-admin');
 const bucket = storageAdmin.bucket();
 
+async function isAdmin(uid: string | undefined): Promise<boolean> {
+  if (!uid) return false;
+  try {
+    const userDocRef = dbAdmin.collection('users').doc(uid);
+    const userDocSnap = await userDocRef.get();
+    return userDocSnap.exists && userDocSnap.data()?.isAdmin === true;
+  } catch (error) {
+    console.error(`[isAdmin check in finances/actions] Error for UID ${uid}:`, error);
+    return false;
+  }
+}
 
 // Fetches all financial documents for a specific student
 export async function getFinancialDocuments(
@@ -20,7 +34,6 @@ export async function getFinancialDocuments(
   try {
     const snapshot = await dbAdmin
       .collection('financialDocuments')
-      // For now, sorting by uploadDate descending. Create an index if prompted.
       .where('studentId', '==', studentId)
       .orderBy('uploadDate', 'desc')
       .get();
@@ -52,6 +65,83 @@ export async function getFinancialDocuments(
         return { error: 'Firestore index required. Please create an index on (studentId ASC, uploadDate DESC) in the `financialDocuments` collection.' };
     }
     return { error: `Failed to fetch financial documents: ${error.message}` };
+  }
+}
+
+// Action to add a new financial document
+export async function addFinancialDocument(
+  formData: FormData,
+  adminId: string
+): Promise<{ success?: boolean; error?: string; document?: FinancialDocument }> {
+  if (!(await isAdmin(adminId))) {
+    return { error: 'Permission denied. Only admins can add documents.' };
+  }
+
+  const file = formData.get('file') as File | null;
+  const name = formData.get('name') as string | null;
+  const type = formData.get('type') as FinancialDocument['type'] | null;
+  const amount = formData.get('amount') as string | null;
+  const status = formData.get('status') as FinancialDocument['status'] | null;
+  const studentId = formData.get('studentId') as string | null;
+  
+  if (!name || !type || !status || !studentId) {
+    return { error: 'Missing required fields: name, type, status, and student association are required.' };
+  }
+  
+  const newDocRef = dbAdmin.collection('financialDocuments').doc();
+  let fileUrl: string | undefined;
+  let storagePath: string | undefined;
+
+  try {
+    if (file && file.size > 0) {
+      storagePath = `financial_documents/${newDocRef.id}/${file.name}`;
+      const tempFilePath = path.join(tmpdir(), file.name);
+      
+      const buffer = Buffer.from(await file.arrayBuffer());
+      await writeFile(tempFilePath, buffer);
+      
+      await bucket.upload(tempFilePath, {
+        destination: storagePath,
+        contentType: file.type,
+      });
+      
+      await unlink(tempFilePath);
+
+      [fileUrl] = await bucket.file(storagePath).getSignedUrl({
+          action: 'read',
+          expires: '03-09-2491',
+      });
+    }
+
+    const uploaderDoc = await dbAdmin.collection('users').doc(adminId).get();
+    const uploaderName = uploaderDoc.exists ? uploaderDoc.data()?.name || 'Admin' : 'Admin';
+
+    const newDocData: Omit<FinancialDocument, 'id' | 'uploadDate'> & { uploadDate: Timestamp } = {
+        name,
+        type,
+        status,
+        studentId,
+        uploaderUid: adminId,
+        amount: amount ? parseFloat(amount) : undefined,
+        fileUrl,
+        storagePath,
+        uploadDate: Timestamp.now(),
+    };
+
+    await newDocRef.set(newDocData);
+    revalidatePath('/finances');
+
+    const returnedDocument: FinancialDocument = {
+      ...newDocData,
+      id: newDocRef.id,
+      uploadDate: newDocData.uploadDate.toDate().toISOString(),
+    };
+
+    return { success: true, document: returnedDocument };
+
+  } catch (error: any) {
+    console.error('[addFinancialDocument] Error:', error);
+    return { error: `Failed to add document: ${error.message}` };
   }
 }
 
