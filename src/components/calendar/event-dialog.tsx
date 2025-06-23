@@ -95,14 +95,36 @@ export function EventDialog({ event, date, studentId, isOpen, onOpenChange, onSa
   };
 
   const handleDateChange = (date: Date | undefined, field: 'start' | 'end') => {
-    if (date) {
-      // Preserve time part of the date
-      const originalDate = formData[field];
-      const newDate = new Date(date);
-      newDate.setHours(originalDate.getHours());
-      newDate.setMinutes(originalDate.getMinutes());
-      newDate.setSeconds(originalDate.getSeconds());
-      setFormData(prev => ({ ...prev, [field]: newDate }));
+    if (!date) return;
+
+    if (field === 'start') {
+      const newStartDate = new Date(date);
+      // Preserve the original time from the form state
+      newStartDate.setHours(formData.start.getHours(), formData.start.getMinutes(), 0, 0);
+
+      const newEndDate = new Date(newStartDate);
+      // Preserve the original end time from the form state
+      newEndDate.setHours(formData.end.getHours(), formData.end.getMinutes(), 0, 0);
+
+      // If the resulting end time is before the start time (e.g., event was 10pm-11pm, and date changed),
+      // adjust the end date to be one hour after the new start date.
+      if (newEndDate <= newStartDate) {
+        newEndDate.setTime(newStartDate.getTime() + 60 * 60 * 1000);
+      }
+      
+      setFormData(prev => ({
+        ...prev,
+        start: newStartDate,
+        end: newEndDate,
+      }));
+    } else { // field is 'end'
+      const newEndDate = new Date(date);
+      newEndDate.setHours(formData.end.getHours(), formData.end.getMinutes(), 0, 0);
+
+      // Only update if the new end date is after the start date
+      if (newEndDate > formData.start) {
+        setFormData(prev => ({ ...prev, end: newEndDate }));
+      }
     }
   };
   
