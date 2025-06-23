@@ -5,7 +5,7 @@ import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { PageHeader } from '@/components/common/page-header';
 import { Calendar as ShadCalendar } from '@/components/ui/calendar';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle as UiCardTitle } from '@/components/ui/card';
 import { EventDialog } from '@/components/calendar/event-dialog';
 import type { CalendarEvent } from '@/types';
 import { format, isSameDay, parseISO, addDays, subDays, startOfWeek, endOfWeek, eachDayOfInterval, set, addMonths } from 'date-fns';
@@ -99,6 +99,12 @@ export default function CalendarPage() {
       hasEvent: events.map(e => e.start as Date),
     };
   }, [events]);
+
+  const eventsForSelectedDay = useMemo(() => {
+    return events
+      .filter(event => isSameDay(event.start as Date, selectedDate))
+      .sort((a, b) => (a.start as Date).getTime() - (b.start as Date).getTime());
+  }, [events, selectedDate]);
   
   const openNewEventDialog = useCallback(() => {
     if (!studentId) {
@@ -254,30 +260,72 @@ export default function CalendarPage() {
             </div>
 
             <TabsContent value="month" className="flex-1 flex flex-col md:flex-row gap-4 p-4 overflow-hidden">
-              <Card className="w-full md:flex-shrink-0 md:w-auto self-start shadow-md">
-                 <CardContent className="p-0">
-                    <ShadCalendar
-                        mode="single"
-                        selected={selectedDate}
-                        onSelect={handleMonthDateSelect}
-                        month={selectedDate}
-                        onMonthChange={setSelectedDate}
-                        className="p-3"
-                        modifiers={eventDateModifiers}
-                        modifiersClassNames={{ hasEvent: 'font-bold text-primary relative after:content-[\'\'] after:block after:w-1.5 after:h-1.5 after:bg-primary after:rounded-full after:absolute after:left-1/2 after:transform after:-translate-x-1/2 after:bottom-1.5' }}
-                    />
-                 </CardContent>
-              </Card>
-              <div className="flex-1 overflow-hidden flex flex-col shadow-inner bg-muted/30 rounded-lg">
-                <DayView
-                  selectedDate={selectedDate}
-                  events={events}
-                  zoomLevel={1.0}
-                  onNavigateDate={() => {}}
-                  onEventClick={openEditEventDialog}
-                  onDeleteEvent={handleDeleteEvent}
-                />
-              </div>
+                <Card className="w-full md:flex-shrink-0 md:w-auto self-start shadow-md">
+                    <CardContent className="p-0">
+                      <ShadCalendar
+                          mode="single"
+                          selected={selectedDate}
+                          onSelect={handleMonthDateSelect}
+                          month={selectedDate}
+                          onMonthChange={setSelectedDate}
+                          className="p-3"
+                          modifiers={eventDateModifiers}
+                          modifiersClassNames={{ hasEvent: 'font-bold text-primary relative after:content-[\'\'] after:block after:w-1.5 after:h-1.5 after:bg-primary after:rounded-full after:absolute after:left-1/2 after:transform after:-translate-x-1/2 after:bottom-1.5' }}
+                      />
+                    </CardContent>
+                </Card>
+                <Card className="flex-1 flex flex-col shadow-inner bg-card">
+                  <div className="p-4 border-b">
+                    <h3 className="font-semibold text-lg font-headline">
+                      Schedule for {format(selectedDate, 'MMMM d, yyyy')}
+                    </h3>
+                  </div>
+                  <ScrollArea className="flex-1">
+                    <div className="p-4 space-y-3">
+                      {eventsForSelectedDay.length > 0 ? (
+                        eventsForSelectedDay.map(event => (
+                          <Card key={event.id} className="p-3 flex justify-between items-start group hover:bg-secondary/50 transition-colors cursor-pointer" onClick={() => openEditEventDialog(event)}>
+                            <div className="space-y-1">
+                              <p className="font-semibold text-sm">{event.title}</p>
+                              <p className="text-xs text-muted-foreground">{format(event.start as Date, 'p')} - {format(event.end as Date, 'p')}</p>
+                              {event.tutorName && event.tutorName !== 'N/A' && (
+                                <p className="text-xs text-muted-foreground">Tutor: {event.tutorName}</p>
+                              )}
+                            </div>
+                            <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-0.5">
+                              <Button variant="ghost" size="icon" className="h-7 w-7" title="Edit Event" onClick={(e) => { e.stopPropagation(); openEditEventDialog(event); }}>
+                                <Edit3 className="h-3.5 w-3.5" />
+                              </Button>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" title="Delete Event" onClick={(e) => e.stopPropagation()}>
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                        This action cannot be undone. This will permanently delete the event "{event.title}".
+                                        </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                        <AlertDialogAction onClick={() => handleDeleteEvent(event.id)} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </div>
+                          </Card>
+                        ))
+                      ) : (
+                        <div className="text-center py-10 h-full flex flex-col justify-center items-center">
+                          <p className="text-muted-foreground">No events scheduled for this day.</p>
+                        </div>
+                      )}
+                    </div>
+                  </ScrollArea>
+                </Card>
             </TabsContent>
             <TabsContent value="week" className="flex-1 overflow-hidden p-0">
               <WeekView
