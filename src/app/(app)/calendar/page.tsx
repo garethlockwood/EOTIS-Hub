@@ -14,9 +14,12 @@ import { getCalendarEvents, saveCalendarEvent, deleteCalendarEvent } from './act
 import { EventDialog } from '@/components/calendar/event-dialog';
 import type { EventInput, DateSelectArg, EventClickArg, EventChangeArg } from '@fullcalendar/core';
 import { Card, CardContent } from '@/components/ui/card';
+import { Slider } from '@/components/ui/slider';
+import { Label } from '@/components/ui/label';
 
 export default function CalendarPage() {
   const [view, setView] = useState('dayGridMonth');
+  const [viewHours, setViewHours] = useState([8, 20]); // Default to 8am - 8pm
   const { selectedStudent, isLoading: studentIsLoading } = useStudent();
   const { toast } = useToast();
 
@@ -129,6 +132,8 @@ export default function CalendarPage() {
       toast({ variant: 'destructive', title: 'Delete Failed', description: result.error });
     }
   }
+
+  const formatHour = (hour: number) => `${String(hour).padStart(2, '0')}:00:00`;
   
   const renderContent = () => {
      if (studentIsLoading || isLoading) {
@@ -159,6 +164,8 @@ export default function CalendarPage() {
             onDateSelect={handleDateSelect}
             onEventClick={handleEventClick}
             onEventChange={handleEventChange}
+            slotMinTime={view === 'dayGridMonth' ? undefined : formatHour(viewHours[0])}
+            slotMaxTime={view === 'dayGridMonth' ? undefined : formatHour(viewHours[1])}
         />
       </div>
     );
@@ -180,15 +187,34 @@ export default function CalendarPage() {
         </Button>
       </PageHeader>
       
-      <Tabs defaultValue="dayGridMonth" onValueChange={(value) => {
-          setView(value);
-      }} className="w-full">
-        <TabsList className="flex w-full md:w-[400px]">
-          <TabsTrigger value="dayGridMonth" className="flex-1">Month</TabsTrigger>
-          <TabsTrigger value="timeGridWeek" className="flex-1">Week</TabsTrigger>
-          <TabsTrigger value="timeGridDay" className="flex-1">Day</TabsTrigger>
-        </TabsList>
-      </Tabs>
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <Tabs defaultValue="dayGridMonth" onValueChange={(value) => {
+            setView(value);
+        }} className="w-full md:w-auto">
+            <TabsList className="flex w-full md:w-[400px]">
+            <TabsTrigger value="dayGridMonth" className="flex-1">Month</TabsTrigger>
+            <TabsTrigger value="timeGridWeek" className="flex-1">Week</TabsTrigger>
+            <TabsTrigger value="timeGridDay" className="flex-1">Day</TabsTrigger>
+            </TabsList>
+        </Tabs>
+
+        {view !== 'dayGridMonth' && (
+            <div className="flex items-center gap-3 w-full md:w-auto md:justify-end">
+                <Label htmlFor="view-hours-slider" className="min-w-max text-sm text-muted-foreground">
+                    View: {viewHours[0]}:00 - {viewHours[1]}:00
+                </Label>
+                <Slider
+                    id="view-hours-slider"
+                    value={viewHours}
+                    onValueChange={setViewHours}
+                    min={0}
+                    max={24}
+                    step={1}
+                    className="w-full max-w-[200px] md:max-w-[250px]"
+                />
+            </div>
+        )}
+      </div>
       
       {renderContent()}
 

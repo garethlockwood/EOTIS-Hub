@@ -14,9 +14,19 @@ interface CalendarViewProps {
   onDateSelect: (selectInfo: DateSelectArg) => void;
   onEventClick: (clickInfo: EventClickArg) => void;
   onEventChange: (changeInfo: EventChangeArg) => void;
+  slotMinTime?: string;
+  slotMaxTime?: string;
 }
 
-export default function CalendarView({ view, events, onDateSelect, onEventClick, onEventChange }: CalendarViewProps) {
+export default function CalendarView({ 
+  view, 
+  events, 
+  onDateSelect, 
+  onEventClick, 
+  onEventChange,
+  slotMinTime,
+  slotMaxTime
+}: CalendarViewProps) {
   return (
     <div className="p-4">
       <FullCalendar
@@ -32,8 +42,10 @@ export default function CalendarView({ view, events, onDateSelect, onEventClick,
         events={events}
         select={onDateSelect}
         eventClick={onEventClick}
-        eventChange={onEventChange} // Handles drag/drop & resize
+        eventChange={onEventChange}
         height="auto"
+        slotMinTime={slotMinTime}
+        slotMaxTime={slotMaxTime}
       />
     </div>
   );
