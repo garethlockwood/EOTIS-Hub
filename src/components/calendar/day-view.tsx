@@ -87,7 +87,7 @@ export function DayView({ selectedDate, events, zoomLevel, onEventClick, onDelet
                   top: `${top}px`,
                   height: `${eventHeight}px`,
                   backgroundColor: event.color ? `${event.color}E6` : `hsla(var(--primary)/0.9)`, 
-                  color: `hsl(var(--primary-foreground))`,
+                  color: `hsl(var(--card-foreground))`,
                   zIndex: 10 
                 }}
                 onClick={() => onEventClick(event)}
