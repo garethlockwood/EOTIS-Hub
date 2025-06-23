@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from '@/components/ui/button';
@@ -36,7 +36,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useAuth } from '@/hooks/use-auth';
 import { getCurrencySymbol } from '@/lib/utils';
 import { getTutorNames } from '@/app/(app)/staff/actions';
-import { Trash2 } from 'lucide-react';
+import { Trash2, X } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 const eventFormSchema = z.object({
   title: z.string().min(1, 'Title is required.'),
@@ -47,6 +48,7 @@ const eventFormSchema = z.object({
   cost: z.coerce.number().optional(),
   meetingLink: z.string().url('Must be a valid URL.').optional().or(z.literal('')),
   description: z.string().optional(),
+  color: z.string().optional(),
 }).refine(data => data.end >= data.start, {
   message: 'End date must be after start date.',
   path: ['end'],
@@ -62,6 +64,16 @@ interface EventDialogProps {
   onSave: (event: Omit<CalendarEvent, 'id'> & { id?: string }) => void;
   onDelete?: (eventId: string) => void;
 }
+
+const COLORS = [
+  '#64B5F6', // primary (blue)
+  '#81C784', // green
+  '#FFB74D', // accent (orange)
+  '#BA68C8', // purple
+  '#FF8A65', // deep orange
+  '#4DD0E1', // cyan
+  '#F06292', // pink
+];
 
 export function EventDialog({ event, studentId, isOpen, onOpenChange, onSave, onDelete }: EventDialogProps) {
   const { currency } = useAuth();
@@ -95,6 +107,7 @@ export function EventDialog({ event, studentId, isOpen, onOpenChange, onSave, on
           cost: event.cost || 0,
           meetingLink: event.meetingLink || '',
           description: event.description || '',
+          color: event.color || undefined,
         });
     } else if (!isOpen) {
         reset({ // Reset to default when closing
@@ -106,6 +119,7 @@ export function EventDialog({ event, studentId, isOpen, onOpenChange, onSave, on
             cost: 0,
             meetingLink: '',
             description: '',
+            color: undefined,
         });
     }
   }, [event, isOpen, reset]);
@@ -221,6 +235,49 @@ export function EventDialog({ event, studentId, isOpen, onOpenChange, onSave, on
                       {tutorList.map(name => <SelectItem key={name} value={name}>{name}</SelectItem>)}
                     </SelectContent>
                   </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="color"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Event Color</FormLabel>
+                  <FormControl>
+                    <div className="flex flex-wrap gap-2 pt-2">
+                      {COLORS.map((color) => (
+                        <button
+                          key={color}
+                          type="button"
+                          className={cn(
+                            "h-8 w-8 rounded-full border-2 transition-all",
+                            field.value === color
+                              ? 'border-ring ring-2 ring-ring ring-offset-2'
+                              : 'border-transparent hover:border-muted-foreground/50'
+                          )}
+                          style={{ backgroundColor: color }}
+                          onClick={() => field.onChange(color)}
+                          aria-label={`Select color ${color}`}
+                        />
+                      ))}
+                      <button
+                          type="button"
+                          className={cn(
+                            "h-8 w-8 rounded-full border-2 flex items-center justify-center bg-muted",
+                            !field.value
+                              ? 'border-ring ring-2 ring-ring ring-offset-2'
+                              : 'border-transparent hover:border-muted-foreground/50'
+                          )}
+                          onClick={() => field.onChange(undefined)}
+                          aria-label="Reset color"
+                        >
+                         <X className="h-4 w-4 text-muted-foreground" />
+                        </button>
+                    </div>
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
