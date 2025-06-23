@@ -121,6 +121,7 @@ export function EventDialog({ event, studentId, isOpen, onOpenChange, onSave }: 
       ...data,
       id: event?.id,
       studentId,
+      tutorName: data.tutorName?.trim() || '',
     };
     onSave(submissionData);
   };
@@ -191,7 +192,7 @@ export function EventDialog({ event, studentId, isOpen, onOpenChange, onSave }: 
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl><SelectTrigger><SelectValue placeholder="Select a tutor" /></SelectTrigger></FormControl>
                     <SelectContent>
-                      <SelectItem value="">None</SelectItem>
+                      <SelectItem value=" ">None</SelectItem>
                       {tutorList.map(name => <SelectItem key={name} value={name}>{name}</SelectItem>)}
                     </SelectContent>
                   </Select>
