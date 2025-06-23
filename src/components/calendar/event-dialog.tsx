@@ -126,7 +126,7 @@ export function EventDialog({ event, date, studentId, isOpen, onOpenChange, onSa
     e.preventDefault();
     const newEvent: CalendarEvent = {
       ...formData,
-      id: event?.id || Date.now().toString(),
+      id: event?.id || '',
       color: event?.color || 'hsl(var(--primary))',
       studentId: event?.studentId || studentId || undefined,
     };
