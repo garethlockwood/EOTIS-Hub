@@ -21,7 +21,7 @@ import { getDocumentTypes, addDocumentType, deleteDocumentType } from '@/app/(ap
 import type { ContentDocument } from '@/types';
 import { Loader2, UploadCloud, Tag, X, Plus } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '../ui/alert-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../ui/alert-dialog';
 import { Separator } from '../ui/separator';
 
 interface DocumentType {
@@ -56,6 +56,10 @@ export function ContentDocDialog({ isOpen, onOpenChange, onSave, document, assoc
   const [docTypes, setDocTypes] = useState<DocumentType[]>([]);
   const [newTypeName, setNewTypeName] = useState('');
   const [isManagingTypes, setIsManagingTypes] = useState(false);
+
+  // New state to manage the delete confirmation dialog
+  const [typeToDelete, setTypeToDelete] = useState<DocumentType | null>(null);
+
 
   const fetchTypes = useCallback(async () => {
     const result = await getDocumentTypes();
@@ -218,127 +222,133 @@ export function ContentDocDialog({ isOpen, onOpenChange, onSave, document, assoc
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[580px]">
-        <DialogHeader>
-          <DialogTitle className="font-headline">{document ? 'Edit Document' : 'Upload New Document'}</DialogTitle>
-          <DialogDescription>
-            {document ? 'Update the details of this document.' : 'Select a file and provide details. Max 10MB.'}
-          </DialogDescription>
-        </DialogHeader>
-        <form onSubmit={handleSubmit} className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-2">
-          {!document && (
+    <>
+      <Dialog open={isOpen} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-[580px]">
+          <DialogHeader>
+            <DialogTitle className="font-headline">{document ? 'Edit Document' : 'Upload New Document'}</DialogTitle>
+            <DialogDescription>
+              {document ? 'Update the details of this document.' : 'Select a file and provide details. Max 10MB.'}
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleSubmit} className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-2">
+            {!document && (
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="contentFile" className="text-right">File*</Label>
+                <Input ref={fileInputRef} id="contentFile" type="file" onChange={handleFileChange} className="col-span-3" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" required={!document} />
+              </div>
+            )}
+
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="contentFile" className="text-right">File*</Label>
-              <Input ref={fileInputRef} id="contentFile" type="file" onChange={handleFileChange} className="col-span-3" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" required={!document} />
+              <Label htmlFor="name" className="text-right">Name*</Label>
+              <Input id="name" name="name" value={formState.name} onChange={handleInputChange} className="col-span-3" placeholder="e.g., Year 5 Maths Plan Q1" required />
             </div>
-          )}
 
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="name" className="text-right">Name*</Label>
-            <Input id="name" name="name" value={formState.name} onChange={handleInputChange} className="col-span-3" placeholder="e.g., Year 5 Maths Plan Q1" required />
-          </div>
-
-          <div className="grid grid-cols-4 items-start gap-4">
-            <Label htmlFor="description" className="text-right pt-2">Description</Label>
-            <Textarea id="description" name="description" value={formState.description} onChange={handleInputChange} className="col-span-3 min-h-[80px]" placeholder="Optional: Brief summary of the document" />
-          </div>
-
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="type" className="text-right">Type*</Label>
-            <Select name="type" value={formState.type} onValueChange={handleTypeChange}>
-              <SelectTrigger className="col-span-3">
-                <SelectValue placeholder="Select document type" />
-              </SelectTrigger>
-              <SelectContent onPointerDownOutside={(e) => e.preventDefault()}>
-                {docTypes.map((docType) => (
-                  <div key={docType.id} className="flex items-center justify-between pr-2 relative">
-                    <SelectItem value={docType.name} className="flex-grow pr-8">{docType.name}</SelectItem>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6 text-muted-foreground hover:text-destructive absolute right-1 top-1/2 -translate-y-1/2"
-                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                          disabled={isManagingTypes}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Delete "{docType.name}"?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            This action cannot be undone. Are you sure you want to permanently delete this document type? This will fail if the type is in use.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel onClick={(e) => e.stopPropagation()}>Cancel</AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              handleDeleteType(docType.id, docType.name);
-                            }}
-                            className="bg-destructive hover:bg-destructive/90"
-                          >
-                            Delete
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </div>
-                ))}
-                <Separator className="my-2" />
-                <div className="p-2 space-y-2">
-                  <Label className="text-xs font-semibold text-muted-foreground px-2">Add New Type</Label>
-                  <div className="flex items-center gap-2 px-2">
-                    <Input
-                      value={newTypeName}
-                      onChange={(e) => setNewTypeName(e.target.value)}
-                      placeholder="New type name..."
-                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddNewType(); } }}
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                    <Button
-                      type="button"
-                      size="icon"
-                      onClick={(e) => { e.stopPropagation(); handleAddNewType(); }}
-                      disabled={isManagingTypes || !newTypeName.trim()}
-                    >
-                      {isManagingTypes ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                    </Button>
-                  </div>
-                </div>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="version" className="text-right">Version</Label>
-            <Input id="version" name="version" value={formState.version} onChange={handleInputChange} className="col-span-3" placeholder="e.g., 1.0, 2.1" />
-          </div>
-
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="tags" className="text-right">Tags</Label>
-            <div className="col-span-3 relative">
-              <Tag className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input id="tags" name="tags" value={formState.tags} onChange={handleInputChange} className="col-span-3 pl-10" placeholder="e.g., math, year5 (comma-separated)" />
+            <div className="grid grid-cols-4 items-start gap-4">
+              <Label htmlFor="description" className="text-right pt-2">Description</Label>
+              <Textarea id="description" name="description" value={formState.description} onChange={handleInputChange} className="col-span-3 min-h-[80px]" placeholder="Optional: Brief summary of the document" />
             </div>
-          </div>
 
-          <DialogFooter className="pt-4 sticky bottom-0 bg-background pb-0 -mb-4">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={isSubmitting || (!selectedFile && !document) || !user?.isAdmin}>
-              {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UploadCloud className="mr-2 h-4 w-4" />}
-              {document ? 'Save Changes' : 'Upload Document'}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="type" className="text-right">Type*</Label>
+              <Select name="type" value={formState.type} onValueChange={handleTypeChange}>
+                <SelectTrigger className="col-span-3">
+                  <SelectValue placeholder="Select document type" />
+                </SelectTrigger>
+                <SelectContent onPointerDownOutside={(e) => e.preventDefault()}>
+                  {docTypes.map((docType) => (
+                    <div key={docType.id} className="flex items-center justify-between pr-2 relative">
+                      <SelectItem value={docType.name} className="flex-grow pr-8">{docType.name}</SelectItem>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 text-muted-foreground hover:text-destructive absolute right-1 top-1/2 -translate-y-1/2"
+                        onClick={(e) => { 
+                          e.preventDefault(); 
+                          e.stopPropagation(); 
+                          setTypeToDelete(docType);
+                        }}
+                        disabled={isManagingTypes}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                  <Separator className="my-2" />
+                  <div className="p-2 space-y-2">
+                    <Label className="text-xs font-semibold text-muted-foreground px-2">Add New Type</Label>
+                    <div className="flex items-center gap-2 px-2">
+                      <Input
+                        value={newTypeName}
+                        onChange={(e) => setNewTypeName(e.target.value)}
+                        placeholder="New type name..."
+                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddNewType(); } }}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                      <Button
+                        type="button"
+                        size="icon"
+                        onClick={(e) => { e.stopPropagation(); handleAddNewType(); }}
+                        disabled={isManagingTypes || !newTypeName.trim()}
+                      >
+                        {isManagingTypes ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                  </div>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="version" className="text-right">Version</Label>
+              <Input id="version" name="version" value={formState.version} onChange={handleInputChange} className="col-span-3" placeholder="e.g., 1.0, 2.1" />
+            </div>
+
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="tags" className="text-right">Tags</Label>
+              <div className="col-span-3 relative">
+                <Tag className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input id="tags" name="tags" value={formState.tags} onChange={handleInputChange} className="col-span-3 pl-10" placeholder="e.g., math, year5 (comma-separated)" />
+              </div>
+            </div>
+
+            <DialogFooter className="pt-4 sticky bottom-0 bg-background pb-0 -mb-4">
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isSubmitting || (!selectedFile && !document) || !user?.isAdmin}>
+                {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UploadCloud className="mr-2 h-4 w-4" />}
+                {document ? 'Save Changes' : 'Upload Document'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+      
+      {typeToDelete && (
+        <AlertDialog open={!!typeToDelete} onOpenChange={(open) => !open && setTypeToDelete(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete "{typeToDelete.name}"?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This action cannot be undone. Are you sure you want to permanently delete this document type? This will fail if the type is in use.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setTypeToDelete(null)}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => {
+                  handleDeleteType(typeToDelete.id, typeToDelete.name);
+                  setTypeToDelete(null);
+                }}
+                className="bg-destructive hover:bg-destructive/90"
+              >
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
+    </>
   );
 }
