@@ -113,28 +113,44 @@ export async function addFinancialDocument(
       });
     }
 
-    const uploaderDoc = await dbAdmin.collection('users').doc(adminId).get();
-    const uploaderName = uploaderDoc.exists ? uploaderDoc.data()?.name || 'Admin' : 'Admin';
-
-    const newDocData: Omit<FinancialDocument, 'id' | 'uploadDate'> & { uploadDate: Timestamp } = {
+    const newDocData: any = {
         name,
         type,
         status,
         studentId,
         uploaderUid: adminId,
-        amount: amount ? parseFloat(amount) : undefined,
-        fileUrl,
-        storagePath,
         uploadDate: Timestamp.now(),
     };
+
+    // Conditionally add optional fields to avoid sending 'undefined' to Firestore
+    if (amount) {
+      const parsedAmount = parseFloat(amount);
+      if (!isNaN(parsedAmount)) {
+        newDocData.amount = parsedAmount;
+      }
+    }
+    if (fileUrl) {
+      newDocData.fileUrl = fileUrl;
+    }
+    if (storagePath) {
+      newDocData.storagePath = storagePath;
+    }
 
     await newDocRef.set(newDocData);
     revalidatePath('/finances');
 
     const returnedDocument: FinancialDocument = {
-      ...newDocData,
       id: newDocRef.id,
+      name: newDocData.name,
+      type: newDocData.type,
+      status: newDocData.status,
+      studentId: newDocData.studentId,
+      uploaderUid: newDocData.uploaderUid,
       uploadDate: newDocData.uploadDate.toDate().toISOString(),
+      // Ensure optional fields are also returned correctly
+      amount: newDocData.amount,
+      fileUrl: newDocData.fileUrl,
+      storagePath: newDocData.storagePath,
     };
 
     return { success: true, document: returnedDocument };
