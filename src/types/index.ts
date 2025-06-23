@@ -69,15 +69,17 @@ export interface ScheduledMeeting {
 
 export interface CalendarEvent {
   id: string;
-  title: string; // subject
-  start: Date;
-  end: Date;
+  title: string;
+  start: Date | string;
+  end: Date | string;
   tutorName: string;
   cost: number;
   meetingLink?: string;
   description?: string;
-  color?: string; // Optional color for the event
+  color?: string;
   studentId?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface StaffMember {

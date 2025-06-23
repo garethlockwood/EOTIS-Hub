@@ -38,8 +38,8 @@ export function WeekView({ selectedDate, events, zoomLevel, onSelectDate, onEven
 
   const getEventsForDay = (day: Date) => {
     return events
-      .filter(event => isSameDay(event.start, day))
-      .sort((a, b) => a.start.getTime() - b.start.getTime());
+      .filter(event => isSameDay(event.start as Date, day))
+      .sort((a, b) => (a.start as Date).getTime() - (b.start as Date).getTime());
   };
   
   const eventItemMinHeight = 40 * Math.max(0.5, zoomLevel * 0.8);
@@ -82,7 +82,7 @@ export function WeekView({ selectedDate, events, zoomLevel, onSelectDate, onEven
                   onClick={() => onEventClick(event)}
                 >
                   <p className="text-[10px] sm:text-xs font-semibold truncate">{event.title}</p>
-                  <p className="text-[9px] sm:text-[10px] truncate">{format(event.start, 'p')}</p>
+                  <p className="text-[9px] sm:text-[10px] truncate">{format(event.start as Date, 'p')}</p>
                   {zoomLevel > 0.8 && event.tutorName && event.tutorName !== 'N/A' && <p className="text-[9px] truncate hidden sm:block">Tutor: {event.tutorName}</p>}
                   <div className="absolute top-0.5 right-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex gap-0.5">
                      <Button variant="ghost" size="icon" className="h-5 w-5 text-primary-foreground hover:bg-primary-foreground/20" onClick={(e) => { e.stopPropagation(); onEventClick(event); }}>

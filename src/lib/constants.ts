@@ -45,9 +45,3 @@ export const PLACEHOLDER_CONTENT_DOCS: ContentDocument[] = [
   { id: '3', name: 'EHCP Guidance UK.pdf', type: 'Resource', uploadDate: '2024-06-15', description: 'Official guidance document on EHCP process.', tags: ['EHCP', 'Legal', 'UK'], fileUrl: '#', uploaderUid: '', uploaderName: '', uploaderRole: '', storagePath: '', fileType: 'pdf', version: '1.0' }, // Global document
   { id: '4', name: 'Invoice Template.xlsx', type: 'Invoice', uploadDate: '2024-05-20', description: 'Standard invoice template for tutors.', tags: ['Invoice', 'Template', 'Finance'], fileUrl: '#', uploaderUid: '', uploaderName: '', uploaderRole: '', storagePath: '', fileType: 'xlsx', version: '1.0' }, // Global document
 ];
-
-export const PLACEHOLDER_CALENDAR_EVENTS: CalendarEvent[] = [
-  { id: 'evt1', title: 'Math Session - Alice', start: new Date(new Date().setDate(new Date().getDate() + 1)), end: new Date(new Date(new Date().setDate(new Date().getDate() + 1)).setHours(new Date().getHours() + 1)), tutorName: 'Dr. Emily Carter', cost: 75, meetingLink: '#', color: 'hsl(var(--primary))', studentId: 'student_1_placeholder' },
-  { id: 'evt2', title: 'Physics Lab - Bob', start: new Date(new Date().setDate(new Date().getDate() + 2)), end: new Date(new Date(new Date().setDate(new Date().getDate() + 2)).setHours(new Date().getHours() + 2)), tutorName: 'Mr. John Doe', cost: 120, meetingLink: '#', color: 'hsl(var(--accent))', studentId: 'student_2_placeholder' },
-  { id: 'evt3', title: 'EHCP Consultation', start: new Date(new Date().setDate(new Date().getDate() -1)), end: new Date(new Date(new Date().setDate(new Date().getDate() -1)).setHours(new Date().getHours() + 1)), tutorName: 'N/A', cost: 0, description: 'Meeting with SENCO', color: 'hsl(var(--secondary))', studentId: 'student_1_placeholder' },
-];

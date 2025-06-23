@@ -7,10 +7,9 @@ import { Calendar as ShadCalendar } from '@/components/ui/calendar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { EventDialog } from '@/components/calendar/event-dialog';
-import { PLACEHOLDER_CALENDAR_EVENTS } from '@/lib/constants';
 import type { CalendarEvent } from '@/types';
 import { format, isSameDay, parseISO, addDays, subDays, startOfWeek, endOfWeek, eachDayOfInterval, set, addMonths } from 'date-fns';
-import { PlusCircle, Edit3, Trash2, ZoomIn, ZoomOut, ChevronLeft, ChevronRight, CalendarIcon as TodayIcon, Loader2, UserX } from 'lucide-react';
+import { PlusCircle, Edit3, Trash2, ZoomIn, ZoomOut, ChevronLeft, ChevronRight, CalendarIcon as TodayIcon, Loader2, UserX, AlertTriangle } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,17 +28,15 @@ import { WeekView } from '@/components/calendar/week-view';
 import { useToast } from "@/hooks/use-toast";
 import { useStudent } from '@/hooks/use-student';
 import { useAuth } from '@/hooks/use-auth';
+import { getCalendarEvents, saveCalendarEvent, deleteCalendarEvent } from './actions';
 
 export default function CalendarPage() {
   const { user } = useAuth();
   const { selectedStudent, isLoading: studentIsLoading } = useStudent();
-  const [events, setEvents] = useState<CalendarEvent[]>(() =>
-    PLACEHOLDER_CALENDAR_EVENTS.map(event => ({
-      ...event,
-      start: typeof event.start === 'string' ? parseISO(event.start) : event.start,
-      end: typeof event.end === 'string' ? parseISO(event.end) : event.end,
-    }))
-  );
+  const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [isLoadingEvents, setIsLoadingEvents] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [isEventDialogOpen, setIsEventDialogOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
@@ -52,7 +49,39 @@ export default function CalendarPage() {
   const currentWeekEnd = useMemo(() => endOfWeek(selectedDate, { weekStartsOn: 1 }), [selectedDate]);
   
   const studentId = selectedStudent?.id;
-  const eventsForStudent = useMemo(() => events.filter(e => e.studentId === studentId), [events, studentId]);
+
+  const fetchEvents = useCallback(async () => {
+    if (!studentId) {
+      setEvents([]);
+      setIsLoadingEvents(false);
+      return;
+    }
+    setIsLoadingEvents(true);
+    setError(null);
+    try {
+      const result = await getCalendarEvents(studentId);
+      if (result.events) {
+        const parsedEvents = result.events.map(event => ({
+          ...event,
+          start: parseISO(event.start as string),
+          end: parseISO(event.end as string),
+        }));
+        setEvents(parsedEvents);
+      } else if (result.error) {
+        setError(result.error);
+        toast({ variant: 'destructive', title: 'Error loading events', description: result.error });
+      }
+    } catch (e: any) {
+      setError(e.message || "An unknown error occurred.");
+      toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch calendar events.' });
+    } finally {
+      setIsLoadingEvents(false);
+    }
+  }, [studentId, toast]);
+
+  useEffect(() => {
+    fetchEvents();
+  }, [fetchEvents]);
 
   const viewTitle = useMemo(() => {
     if (currentView === 'month') return format(selectedDate, 'MMMM yyyy');
@@ -67,15 +96,15 @@ export default function CalendarPage() {
 
   const eventsForSelectedDayInMonthView = useMemo(() => {
     if (currentView !== 'month' || !selectedDate) return [];
-    return eventsForStudent.filter(event => isSameDay(event.start, selectedDate))
-                 .sort((a, b) => a.start.getTime() - b.start.getTime());
-  }, [eventsForStudent, selectedDate, currentView]);
+    return events.filter(event => isSameDay(event.start as Date, selectedDate))
+                 .sort((a, b) => (a.start as Date).getTime() - (b.start as Date).getTime());
+  }, [events, selectedDate, currentView]);
 
   const eventDateModifiers = useMemo(() => {
     return {
-      hasEvent: eventsForStudent.map(e => e.start),
+      hasEvent: events.map(e => e.start as Date),
     };
-  }, [eventsForStudent]);
+  }, [events]);
   
   const openNewEventDialog = useCallback(() => {
     if (!studentId) {
@@ -103,25 +132,32 @@ export default function CalendarPage() {
     }
   };
 
-  const handleSaveEvent = (eventToSave: CalendarEvent) => {
-    setEvents(prevEvents => {
-      const existingEventIndex = prevEvents.findIndex(e => e.id === eventToSave.id);
-      if (existingEventIndex > -1) {
-        const updatedEvents = [...prevEvents];
-        updatedEvents[existingEventIndex] = eventToSave;
-        return updatedEvents;
-      }
-      return [...prevEvents, eventToSave];
+  const handleSaveEvent = async (eventToSave: CalendarEvent) => {
+    const isNew = !eventToSave.id;
+    const result = await saveCalendarEvent({
+      ...eventToSave,
+      id: isNew ? undefined : eventToSave.id,
     });
+
+    if (result.success && result.event) {
+      toast({ title: "Event Saved", description: `Event "${eventToSave.title}" has been saved.`});
+      await fetchEvents();
+    } else {
+      toast({ variant: "destructive", title: "Save Failed", description: result.error || "Could not save the event." });
+    }
     setEditingEvent(null);
     setIsEventDialogOpen(false);
-    toast({ title: "Event Saved", description: `Event "${eventToSave.title}" has been saved.`});
   };
 
-  const handleDeleteEvent = (eventId: string) => {
+  const handleDeleteEvent = async (eventId: string) => {
     const eventTitle = events.find(e => e.id === eventId)?.title || "event";
-    setEvents(prevEvents => prevEvents.filter(e => e.id !== eventId));
-    toast({ title: "Event Deleted", description: `Event "${eventTitle}" has been deleted.`, variant: "destructive"});
+    const result = await deleteCalendarEvent(eventId);
+    if(result.success) {
+      toast({ title: "Event Deleted", description: `Event "${eventTitle}" has been deleted.`, variant: "destructive"});
+      await fetchEvents();
+    } else {
+      toast({ variant: "destructive", title: "Delete Failed", description: result.error || "Could not delete the event."});
+    }
   };
 
   const handleZoom = (amount: number) => {
@@ -162,6 +198,29 @@ export default function CalendarPage() {
             <UserX className="h-16 w-16 text-muted-foreground mb-4" />
             <h3 className="text-xl font-semibold">No Student Selected</h3>
             <p className="text-muted-foreground">Please select a student to view their calendar.</p>
+        </Card>
+      );
+    }
+
+    if (isLoadingEvents) {
+      return (
+        <div className="flex justify-center items-center flex-1 h-[calc(100vh-16rem)]">
+          <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        </div>
+      );
+    }
+    
+    if (error) {
+      return (
+        <Card className="bg-destructive/10 border-destructive">
+          <CardContent className="p-6 flex items-center gap-4">
+            <AlertTriangle className="h-8 w-8 text-destructive" />
+            <div>
+              <h3 className="font-semibold text-destructive">Error Loading Events</h3>
+              <p className="text-destructive/80">{error}</p>
+              <Button variant="outline" size="sm" onClick={fetchEvents} className="mt-2">Try Again</Button>
+            </div>
+          </CardContent>
         </Card>
       );
     }
@@ -231,7 +290,7 @@ export default function CalendarPage() {
                               <div>
                                 <h4 className="font-semibold font-body">{event.title}</h4>
                                 <p className="text-sm text-muted-foreground">
-                                  {format(event.start, 'p')} - {format(event.end, 'p')}
+                                  {format(event.start as Date, 'p')} - {format(event.end as Date, 'p')}
                                 </p>
                                 {event.tutorName && event.tutorName !== 'N/A' && (
                                   <p className="text-xs text-muted-foreground">Tutor: {event.tutorName}</p>
@@ -282,7 +341,7 @@ export default function CalendarPage() {
             <TabsContent value="week" className="flex-1 overflow-hidden p-0">
               <WeekView
                 selectedDate={selectedDate}
-                events={eventsForStudent}
+                events={events}
                 zoomLevel={zoomLevel}
                 onNavigateDate={setSelectedDate}
                 onSelectDate={handleSelectDateFromView}
@@ -293,7 +352,7 @@ export default function CalendarPage() {
             <TabsContent value="day" className="flex-1 overflow-hidden p-0">
               <DayView
                 selectedDate={selectedDate}
-                events={eventsForStudent}
+                events={events}
                 zoomLevel={zoomLevel}
                 onNavigateDate={setSelectedDate}
                 onEventClick={openEditEventDialog}

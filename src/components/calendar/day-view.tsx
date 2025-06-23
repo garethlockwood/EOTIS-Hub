@@ -38,8 +38,8 @@ export function DayView({ selectedDate, events, zoomLevel, onEventClick, onDelet
   const timeSlots = Array.from({ length: 24 }, (_, i) => i); // 0 to 23 hours
 
   const eventsForDay = events
-    .filter(event => isSameDay(event.start, selectedDate))
-    .sort((a, b) => a.start.getTime() - b.start.getTime());
+    .filter(event => isSameDay(event.start as Date, selectedDate))
+    .sort((a, b) => (a.start as Date).getTime() - (b.start as Date).getTime());
 
   return (
     <ScrollArea className="h-full w-full">
@@ -70,11 +70,11 @@ export function DayView({ selectedDate, events, zoomLevel, onEventClick, onDelet
 
           {/* Render Events */}
           {eventsForDay.map(event => {
-            const startHour = getHours(event.start) + getMinutes(event.start) / 60;
-            const endHour = getHours(event.end) + getMinutes(event.end) / 60;
+            const startHour = getHours(event.start as Date) + getMinutes(event.start as Date) / 60;
+            const endHour = getHours(event.end as Date) + getMinutes(event.end as Date) / 60;
             
             const top = startHour * hourHeight;
-            const durationMinutes = differenceInMinutes(event.end, event.start);
+            const durationMinutes = differenceInMinutes(event.end as Date, event.start as Date);
             let eventHeight = (durationMinutes / 60) * hourHeight;
             eventHeight = Math.max(eventHeight, MIN_EVENT_HEIGHT * zoomLevel);
 
@@ -93,7 +93,7 @@ export function DayView({ selectedDate, events, zoomLevel, onEventClick, onDelet
                 onClick={() => onEventClick(event)}
               >
                 <h4 className="text-xs sm:text-sm font-semibold truncate">{event.title}</h4>
-                <p className="text-xs truncate">{format(event.start, 'p')} - {format(event.end, 'p')}</p>
+                <p className="text-xs truncate">{format(event.start as Date, 'p')} - {format(event.end as Date, 'p')}</p>
                 {event.tutorName && event.tutorName !== 'N/A' && <p className="text-xs truncate hidden sm:block">Tutor: {event.tutorName}</p>}
                  {eventHeight > 40 * zoomLevel && event.description && <p className="text-xs truncate mt-1 hidden md:block">{event.description}</p>}
                  <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity flex gap-0.5">
