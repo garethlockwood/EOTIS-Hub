@@ -10,6 +10,12 @@ import {
   isSameDay,
   isToday,
   isSameMonth,
+  setHours,
+  setMinutes,
+  getHours,
+  getMinutes,
+  differenceInMinutes,
+  isWithinInterval,
 } from 'date-fns';
 import React from 'react';
 import { Button } from '@/components/ui/button';
@@ -26,7 +32,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
+} from "@/components/ui/alert-dialog";
+
+const HOUR_HEIGHT_BASE = 60; // px for 100% zoom (1 hour)
+const MIN_EVENT_HEIGHT = 20; // px
 
 interface WeekViewProps {
   selectedDate: Date;
@@ -50,18 +59,19 @@ export function WeekView({
   const viewStart = startOfWeek(selectedDate, { weekStartsOn });
   const viewEnd = endOfWeek(selectedDate, { weekStartsOn });
   const days = eachDayOfInterval({ start: viewStart, end: viewEnd });
+  const hourHeight = HOUR_HEIGHT_BASE * zoomLevel;
 
-  const getEventsForDay = (day: Date) =>
-    events
-      .filter((event) => isSameDay(event.start as Date, day))
-      .sort((a, b) => (a.start as Date).getTime() - (b.start as Date).getTime());
+  const timeSlots = Array.from({ length: 24 }, (_, i) => i); // 0 to 23 hours
 
-  const eventItemMinHeight = 40 * Math.max(0.5, zoomLevel * 0.8);
+  const eventsForWeek = events.filter(event => 
+    isWithinInterval(event.start as Date, { start: viewStart, end: viewEnd })
+  );
 
   return (
     <div className="flex flex-col h-full">
       {/* Header row with weekdays */}
-      <div className="grid grid-cols-7 border-b border-border sticky top-0 bg-background z-10">
+      <div className="grid grid-cols-[auto_repeat(7,1fr)] sticky top-0 bg-background z-20 border-b">
+        <div className="w-14 border-r"></div> {/* Spacer for time gutter */}
         {days.map((day) => (
           <div
             key={day.toISOString()}
@@ -88,97 +98,102 @@ export function WeekView({
           </div>
         ))}
       </div>
-
-      {/* Scrollable area with calendar days */}
+      
       <ScrollArea className="flex-1">
-        <div className="grid grid-cols-7 h-full">
-          {days.map((day) => {
-            const eventsForDay = getEventsForDay(day);
-            return (
+        <div className="relative grid grid-cols-[auto_1fr]">
+          {/* Time Gutter */}
+          <div 
+            className="row-start-1 col-start-1 bg-background pr-2 pt-[calc(var(--hour-height)/2-8px)] sticky left-0 z-10" 
+            style={{ '--hour-height': `${hourHeight}px` } as React.CSSProperties}
+          >
+            {timeSlots.map(hour => (
               <div
-                key={`content-${day.toISOString()}`}
-                className="border-r border-border last:border-r-0 p-1.5 space-y-1.5 min-h-[120px]"
+                key={`time-${hour}`}
+                className="h-[var(--hour-height)] text-right text-xs text-muted-foreground pr-1 flex items-start justify-end"
+                style={{ '--hour-height': `${hourHeight}px` } as React.CSSProperties}
               >
-                {eventsForDay.length === 0 ? (
-                  <div className="rounded-md bg-muted/20 p-2 text-center text-muted-foreground text-xs h-full min-h-[80px] flex items-center justify-center">
-                    No events
-                  </div>
-                ) : (
-                  eventsForDay.map((event) => (
-                    <div
-                      key={event.id}
-                      className="rounded-md p-1.5 shadow cursor-pointer group relative"
-                      style={{
-                        backgroundColor: event.color
-                          ? `${event.color}CC`
-                          : `hsla(var(--primary)/0.8)`,
-                        color: `hsl(var(--card-foreground))`,
-                        minHeight: `${eventItemMinHeight}px`,
-                      }}
-                      onClick={() => onEventClick(event)}
-                    >
-                      <p className="text-[10px] sm:text-xs font-semibold truncate">
-                        {event.title}
-                      </p>
-                      <p className="text-[9px] sm:text-[10px] truncate">
-                        {format(event.start as Date, 'p')}
-                      </p>
-                      {zoomLevel > 0.8 &&
-                        event.tutorName &&
-                        event.tutorName !== 'N/A' && (
-                          <p className="text-[9px] truncate hidden sm:block">
-                            Tutor: {event.tutorName}
-                          </p>
-                        )}
+                {format(setMinutes(setHours(new Date(), hour),0), 'ha')}
+              </div>
+            ))}
+          </div>
 
-                      <div className="absolute top-0.5 right-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex gap-0.5">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-5 w-5 text-primary-foreground hover:bg-primary-foreground/20"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onEventClick(event);
-                          }}
-                        >
-                          <Edit3 className="h-2.5 w-2.5" />
+          {/* Events Grid */}
+          <div className="col-start-2 grid grid-cols-7 relative">
+            {/* Background lines */}
+            {days.map((day, dayIndex) => (
+                <div key={day.toISOString()} className="relative border-r last:border-r-0">
+                    {timeSlots.map(hour => (
+                        <div
+                        key={`line-${dayIndex}-${hour}`}
+                        className="h-[var(--hour-height)] border-b"
+                        style={{ '--hour-height': `${hourHeight}px` } as React.CSSProperties}
+                        ></div>
+                    ))}
+                </div>
+            ))}
+
+            {/* Render Events */}
+            {eventsForWeek.map(event => {
+                const dayIndex = days.findIndex(d => isSameDay(d, event.start as Date));
+                if (dayIndex === -1) return null;
+
+                const startHour = getHours(event.start as Date) + getMinutes(event.start as Date) / 60;
+                
+                const top = startHour * hourHeight;
+                const durationMinutes = differenceInMinutes(event.end as Date, event.start as Date);
+                let eventHeight = (durationMinutes / 60) * hourHeight;
+                eventHeight = Math.max(eventHeight, MIN_EVENT_HEIGHT * zoomLevel);
+
+                const left = `${dayIndex * (100 / 7)}%`;
+                const width = `${100 / 7}%`;
+
+                return (
+                <div
+                    key={event.id}
+                    className="absolute rounded-md p-1.5 shadow-md overflow-hidden cursor-pointer group"
+                    style={{
+                        top: `${top}px`,
+                        height: `${eventHeight}px`,
+                        left: `calc(${left} + 4px)`, // Add some padding
+                        width: `calc(${width} - 8px)`, // Add some padding
+                        backgroundColor: event.color ? `${event.color}E6` : `hsla(var(--primary)/0.9)`, 
+                        color: `hsl(var(--card-foreground))`,
+                        zIndex: 10 
+                    }}
+                    onClick={() => onEventClick(event)}
+                >
+                    <h4 className="text-xs font-semibold truncate">{event.title}</h4>
+                    <p className="text-[10px] truncate">{format(event.start as Date, 'p')} - {format(event.end as Date, 'p')}</p>
+                    {eventHeight > 40 * zoomLevel && event.tutorName && event.tutorName !== 'N/A' && <p className="text-[10px] truncate hidden sm:block">Tutor: {event.tutorName}</p>}
+
+                    <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity flex gap-0.5">
+                        <Button variant="ghost" size="icon" className="h-6 w-6 text-primary-foreground hover:bg-primary-foreground/20" onClick={(e) => { e.stopPropagation(); onEventClick(event); }}>
+                            <Edit3 className="h-3 w-3" />
                         </Button>
                         <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-5 w-5 text-destructive-foreground hover:bg-destructive-foreground/20"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <Trash2 className="h-2.5 w-2.5" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent onClick={(e) => e.stopPropagation()}>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                This will permanently delete the event "{event.title}".
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction
-                                onClick={() => onDeleteEvent(event.id)}
-                                className="bg-destructive hover:bg-destructive/90"
-                              >
-                                Delete
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
+                            <AlertDialogTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive-foreground hover:bg-destructive-foreground/20" onClick={(e) => e.stopPropagation()}>
+                                    <Trash2 className="h-3 w-3" />
+                                </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                    This will permanently delete the event "{event.title}".
+                                    </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => onDeleteEvent(event.id)} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
                         </AlertDialog>
-                      </div>
                     </div>
-                  ))
-                )}
-              </div>
-            );
-          })}
+                </div>
+                );
+            })}
+          </div>
         </div>
       </ScrollArea>
     </div>
