@@ -145,7 +145,7 @@
 .fc .fc-event {
   background-color: hsl(var(--primary));
   border-color: hsl(var(--primary));
-  color: hsl(var(--primary-foreground));
+  color: hsl(222.2 47.4% 11.2%); /* Use a consistent dark color for event text */
 }
 
 .dark .fc .fc-toolbar-title {
