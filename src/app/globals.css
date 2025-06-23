@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -104,4 +105,69 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* FullCalendar Customizations */
+.fc {
+  font-family: 'PT Sans', sans-serif;
+}
+.fc .fc-toolbar-title {
+  font-family: 'Poppins', sans-serif;
+  color: hsl(var(--foreground));
+}
+.fc .fc-button {
+  background-color: hsl(var(--primary)) !important;
+  color: hsl(var(--primary-foreground)) !important;
+  border: none !important;
+  box-shadow: none !important;
+  opacity: 0.9;
+}
+.fc .fc-button:hover {
+  opacity: 1;
+}
+.fc .fc-button-primary:not(:disabled).fc-button-active {
+  background-color: hsl(var(--accent)) !important;
+  color: hsl(var(--accent-foreground)) !important;
+}
+
+.fc .fc-daygrid-day.fc-day-today {
+  background-color: hsla(var(--primary), 0.1);
+}
+
+.fc .fc-timegrid-slot-lane {
+  border-color: hsl(var(--border));
+}
+
+.fc-theme-standard .fc-list-day-cushion {
+  background-color: hsl(var(--muted));
+}
+
+.fc .fc-event {
+  background-color: hsl(var(--primary));
+  border-color: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+}
+
+.dark .fc .fc-toolbar-title {
+  color: hsl(var(--foreground));
+}
+
+.dark .fc .fc-daygrid-day-number {
+  color: hsl(var(--foreground));
+}
+
+.dark .fc-theme-standard td, .dark .fc-theme-standard th {
+  border-color: hsl(var(--border));
+}
+
+.dark .fc .fc-daygrid-day.fc-day-today {
+  background-color: hsla(var(--primary), 0.15);
+}
+
+.dark .fc .fc-list-day-cushion {
+  background-color: hsl(var(--muted));
+}
+
+.dark .fc-timegrid-slot-label-cushion, .dark .fc-daygrid-day-number {
+    color: hsl(var(--muted-foreground));
 }
