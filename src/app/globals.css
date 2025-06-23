@@ -145,8 +145,15 @@
 .fc .fc-event {
   background-color: hsl(var(--primary));
   border-color: hsl(var(--primary));
-  color: hsl(222.2 47.4% 11.2%); /* Use a consistent dark color for event text */
 }
+
+/* Force dark text color on events to contrast with light backgrounds */
+.fc .fc-event .fc-event-main,
+.fc .fc-timegrid-event .fc-event-title,
+.fc-daygrid-event .fc-event-title {
+  color: hsl(210 10% 23%) !important;
+}
+
 
 .dark .fc .fc-toolbar-title {
   color: hsl(var(--foreground));
