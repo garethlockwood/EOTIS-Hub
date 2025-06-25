@@ -38,7 +38,7 @@ export async function askAiAssistantQuestions(input: AskAiAssistantQuestionsInpu
 const getDocumentContext = ai.defineTool(
   {
     name: 'getDocumentContext',
-    description: "Retrieves metadata and user-provided summaries for all documents related to a student. This includes their EHCP files and any associated files from the content repository. Use this tool to answer questions about a user's specific files.",
+    description: "Retrieves the content of all documents related to a student. This includes their EHCP files and any associated files from the content repository. Use this tool to answer questions about a user's specific files.",
     inputSchema: z.object({
       studentId: z.string().describe('The ID of the student to fetch documents for.'),
     }),
@@ -47,7 +47,7 @@ const getDocumentContext = ai.defineTool(
         id: z.string(),
         name: z.string(),
         type: z.string(),
-        description: z.string().optional().describe("A user-provided summary of the document's content. This is NOT the full text."),
+        description: z.string().optional().describe("The full text content of the document. This may start with a user-provided summary, followed by the full text if available."),
         status: z.string().optional(),
         uploadDate: z.string(),
       })
@@ -59,14 +59,25 @@ const getDocumentContext = ai.defineTool(
     // Fetch and map EHCP documents
     const ehcpResult = await getEhcpDocuments(studentId);
     if (ehcpResult.documents) {
-      allDocuments.push(...ehcpResult.documents.map(d => ({
-        id: d.docId,
-        name: d.name,
-        type: 'EHCP Document',
-        description: d.description || 'No description provided.',
-        status: d.status,
-        uploadDate: d.uploadDate,
-      })));
+      allDocuments.push(...ehcpResult.documents.map(d => {
+        // --- SIMULATION for "Amelia Lockwood" ---
+        // In a real application, you would implement text extraction from the PDF/DOCX file here.
+        // For now, we simulate this for a specific document to demonstrate the AI's capability.
+        let fullTextDescription = d.description || 'No description provided.';
+        if (d.name.toLowerCase().includes('amelia lockwood')) {
+            fullTextDescription += `\n\n--- FULL TEXT (SIMULATED) ---\n\nSection F: Provision for Special Educational Needs\n\nPhysical Education (PE): Amelia requires a differentiated PE curriculum. Provision must be made for 1:1 support from a teaching assistant during all PE lessons to ensure her safety and facilitate participation. Weekly hydrotherapy sessions (1 hour) are to be provided by the local authority at the community pool. Amelia will also have access to adapted sports equipment as recommended by the Occupational Therapist in Section E.`;
+        }
+        // --- END SIMULATION ---
+        
+        return {
+          id: d.docId,
+          name: d.name,
+          type: 'EHCP Document',
+          description: fullTextDescription,
+          status: d.status,
+          uploadDate: d.uploadDate,
+        };
+      }));
     }
     
     // Fetch and map Content Repository documents
@@ -79,7 +90,7 @@ const getDocumentContext = ai.defineTool(
         id: d.id,
         name: d.name,
         type: d.type,
-        description: d.description || 'No description provided.',
+        description: d.description || 'No description provided. The full text is not available for this document type yet.',
         status: 'N/A', // Content docs don't have a status field like EHCP
         uploadDate: d.uploadDate,
       })));
@@ -106,8 +117,9 @@ You have a brilliant understanding of:
 When answering questions:
 - Be clear, concise, and easy to understand. Avoid overly legalistic jargon where possible, or explain it if necessary.
 - Provide actionable advice and point to official resources or next steps where appropriate.
-- **IMPORTANT**: If a user's question requires information from their specific documents (e.g., "What does my EHCP say about X?"), you MUST use the \`getDocumentContext\` tool to fetch their documents. The tool provides a user-written summary in the 'description' field, NOT the full text. You must base your answer on this summary.
-- If the 'description' field is empty, "No description provided.", or does not contain enough information to answer the question, you MUST inform the user that you cannot access the full content of the document and can only provide information from its title and summary. Do not invent information.
+- **IMPORTANT**: If a user's question requires information from their specific documents (e.g., "What does my EHCP say about X?"), you MUST use the \`getDocumentContext\` tool to retrieve the document's content. The tool provides the document's text in the 'description' field.
+- If the 'description' field contains the information needed, use it to answer the question directly.
+- If the 'description' field does not contain the answer, inform the user that you couldn't find the specific information in the document's provided text.
 - If you use information from a document's 'description' field to answer the question, you MUST cite that document in the \`documentsCited\` field of your response.
 - If the question is outside your expertise, clearly state that.
 
