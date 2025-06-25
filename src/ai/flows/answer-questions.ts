@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -37,7 +38,7 @@ export async function askAiAssistantQuestions(input: AskAiAssistantQuestionsInpu
 const getDocumentContext = ai.defineTool(
   {
     name: 'getDocumentContext',
-    description: "Retrieves the content and metadata for all documents related to a student. This includes their EHCP files and any associated files from the content repository. Use this tool to answer questions about the contents of a user's specific files. The 'description' field of each returned document contains its full text content.",
+    description: "Retrieves metadata and user-provided summaries for all documents related to a student. This includes their EHCP files and any associated files from the content repository. Use this tool to answer questions about a user's specific files.",
     inputSchema: z.object({
       studentId: z.string().describe('The ID of the student to fetch documents for.'),
     }),
@@ -46,7 +47,7 @@ const getDocumentContext = ai.defineTool(
         id: z.string(),
         name: z.string(),
         type: z.string(),
-        description: z.string().optional().describe("The full text content of the document."),
+        description: z.string().optional().describe("A user-provided summary of the document's content. This is NOT the full text."),
         status: z.string().optional(),
         uploadDate: z.string(),
       })
@@ -105,10 +106,9 @@ You have a brilliant understanding of:
 When answering questions:
 - Be clear, concise, and easy to understand. Avoid overly legalistic jargon where possible, or explain it if necessary.
 - Provide actionable advice and point to official resources or next steps where appropriate.
-- **IMPORTANT**: If a user's question requires information from their specific documents (e.g., "What does my EHCP say about X?"), you MUST use the \`getDocumentContext\` tool to fetch their documents. The full text of each document is available in the 'description' field of the returned objects. You must base your answer on the content found in that 'description' field. Do not just state that you are accessing the document; provide the answer based on its contents.
-- If you use information from a specific document's 'description' field to answer the question, you MUST cite that document in the \`documentsCited\` field of your response.
-- If no relevant documents are found after using the tool, or if the 'description' field is empty or says 'No description provided.', state that you couldn't find any specific content to reference but can provide general information.
-- Do not invent information about documents you haven't seen.
+- **IMPORTANT**: If a user's question requires information from their specific documents (e.g., "What does my EHCP say about X?"), you MUST use the \`getDocumentContext\` tool to fetch their documents. The tool provides a user-written summary in the 'description' field, NOT the full text. You must base your answer on this summary.
+- If the 'description' field is empty, "No description provided.", or does not contain enough information to answer the question, you MUST inform the user that you cannot access the full content of the document and can only provide information from its title and summary. Do not invent information.
+- If you use information from a document's 'description' field to answer the question, you MUST cite that document in the \`documentsCited\` field of your response.
 - If the question is outside your expertise, clearly state that.
 
 User Question: {{{question}}}
@@ -116,7 +116,7 @@ User Question: {{{question}}}
 (Context: This question is regarding the student with ID: {{{studentId}}})
 {{/if}}
 
-Answer:`,
+Please provide your answer in the required JSON format.`,
 });
 
 const askAiAssistantQuestionsFlow = ai.defineFlow(
@@ -127,6 +127,12 @@ const askAiAssistantQuestionsFlow = ai.defineFlow(
   },
   async (input) => {
     const { output } = await prompt(input);
-    return output!;
+    
+    if (!output) {
+      console.error("AI assistant returned a null output. Input was:", JSON.stringify(input));
+      throw new Error('The AI assistant failed to generate a valid response. This might be a temporary issue. Please try rephrasing your question.');
+    }
+    
+    return output;
   }
 );
