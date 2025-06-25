@@ -46,8 +46,8 @@ export async function askAiAssistantQuestions(input: AskAiAssistantQuestionsInpu
 async function extractTextFromFile(filePath: string, fileExtension: string): Promise<string> {
     try {
         if (fileExtension.includes('pdf')) {
-            // Pass the file path directly to pdf-parse to avoid potential bundling issues with its dependencies.
-            const data = await pdf(filePath);
+            const buffer = await fs.readFile(filePath);
+            const data = await pdf(buffer);
             return data.text;
         } else if (fileExtension.includes('word')) { // .doc, .docx
             const buffer = await fs.readFile(filePath);
