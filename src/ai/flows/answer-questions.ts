@@ -2,22 +2,31 @@
 
 /**
  * @fileOverview An AI assistant for answering questions about the EOTIS platform, EHCP process, and educational law (UK).
+ * It can also access user-specific documents from the repository and EHCP sections.
  *
  * - askAiAssistantQuestions - A function that handles the question answering process.
  * - AskAiAssistantQuestionsInput - The input type for the askAiAssistantQuestions function.
  * - AskAiAssistantQuestionsOutput - The return type for the askAiAssistantQuestions function.
  */
 
-import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
+import { ai } from '@/ai/genkit';
+import { z } from 'genkit';
+import { getEhcpDocuments } from '@/app/(app)/ehcp/actions';
+import { getContentDocuments } from '@/app/(app)/repository/actions';
 
 const AskAiAssistantQuestionsInputSchema = z.object({
   question: z.string().describe('The question to ask the AI assistant.'),
+  studentId: z.string().optional().describe('The ID of the student context for the question, if applicable.'),
 });
 export type AskAiAssistantQuestionsInput = z.infer<typeof AskAiAssistantQuestionsInputSchema>;
 
 const AskAiAssistantQuestionsOutputSchema = z.object({
   answer: z.string().describe('The answer to the question.'),
+  documentsCited: z.array(z.object({
+    id: z.string(),
+    name: z.string(),
+    type: z.string(),
+  })).optional().describe('A list of documents the AI used to formulate the answer.'),
 });
 export type AskAiAssistantQuestionsOutput = z.infer<typeof AskAiAssistantQuestionsOutputSchema>;
 
@@ -25,10 +34,65 @@ export async function askAiAssistantQuestions(input: AskAiAssistantQuestionsInpu
   return askAiAssistantQuestionsFlow(input);
 }
 
+const getDocumentContext = ai.defineTool(
+  {
+    name: 'getDocumentContext',
+    description: 'Retrieves metadata (name, type, description, status) for all documents related to a student. This includes their EHCP files and any associated files from the content repository, as well as global documents. Use this to answer questions about the user\'s specific files.',
+    inputSchema: z.object({
+      studentId: z.string().describe('The ID of the student to fetch documents for.'),
+    }),
+    outputSchema: z.array(
+      z.object({
+        id: z.string(),
+        name: z.string(),
+        type: z.string(),
+        description: z.string().optional(),
+        status: z.string().optional(),
+        uploadDate: z.string(),
+      })
+    ),
+  },
+  async ({ studentId }) => {
+    const allDocuments: any[] = [];
+    
+    // Fetch and map EHCP documents
+    const ehcpResult = await getEhcpDocuments(studentId);
+    if (ehcpResult.documents) {
+      allDocuments.push(...ehcpResult.documents.map(d => ({
+        id: d.docId,
+        name: d.name,
+        type: 'EHCP Document',
+        description: d.description || 'No description provided.',
+        status: d.status,
+        uploadDate: d.uploadDate,
+      })));
+    }
+    
+    // Fetch and map Content Repository documents
+    const contentResult = await getContentDocuments();
+    if (contentResult.documents) {
+      const relevantContentDocs = contentResult.documents.filter(
+        (doc) => !doc.associatedUserId || doc.associatedUserId === studentId
+      );
+      allDocuments.push(...relevantContentDocs.map(d => ({
+        id: d.id,
+        name: d.name,
+        type: d.type,
+        description: d.description || 'No description provided.',
+        status: 'N/A', // Content docs don't have a status field like EHCP
+        uploadDate: d.uploadDate,
+      })));
+    }
+
+    return allDocuments;
+  }
+);
+
 const prompt = ai.definePrompt({
   name: 'askAiAssistantQuestionsPrompt',
-  input: {schema: AskAiAssistantQuestionsInputSchema},
-  output: {schema: AskAiAssistantQuestionsOutputSchema},
+  input: { schema: AskAiAssistantQuestionsInputSchema },
+  output: { schema: AskAiAssistantQuestionsOutputSchema },
+  tools: [getDocumentContext],
   prompt: `You are EOTIS AI, an expert AI consultant. Your primary role is to assist parents and educators by providing comprehensive, accurate, and empathetic information and guidance.
 
 You have a brilliant understanding of:
@@ -41,11 +105,16 @@ You have a brilliant understanding of:
 When answering questions:
 - Be clear, concise, and easy to understand. Avoid overly legalistic jargon where possible, or explain it if necessary.
 - Provide actionable advice and point to official resources or next steps where appropriate.
-- If a question pertains to a specific child's situation that might require information from their documents (like an EHCP), acknowledge that you don't have access to personal documents. Instead, explain what kind of information from such documents would be relevant for them to consider, or guide them on how to interpret their own documents in light of your general advice.
-- Maintain a supportive and encouraging tone.
+- **IMPORTANT**: If the user's question appears to reference their own documents (e.g., "What does section F of my EHCP say?", "Summarize my latest report"), you MUST use the \`getDocumentContext\` tool to fetch a list of their available documents. Use the information from the returned documents (like name, description, status) to formulate your answer.
+- If you use information from a specific document to answer the question, you MUST cite the document(s) in the \`documentsCited\` field of your response.
+- If no relevant documents are found after using the tool, state that you couldn't find any specific documents to reference but can provide general information.
+- Do not invent information about documents you haven't seen.
 - If the question is outside your expertise, clearly state that.
 
 User Question: {{{question}}}
+{{#if studentId}}
+(Context: This question is regarding the student with ID: {{{studentId}}})
+{{/if}}
 
 Answer:`,
 });
@@ -56,8 +125,8 @@ const askAiAssistantQuestionsFlow = ai.defineFlow(
     inputSchema: AskAiAssistantQuestionsInputSchema,
     outputSchema: AskAiAssistantQuestionsOutputSchema,
   },
-  async input => {
-    const {output} = await prompt(input);
+  async (input) => {
+    const { output } = await prompt(input);
     return output!;
   }
 );

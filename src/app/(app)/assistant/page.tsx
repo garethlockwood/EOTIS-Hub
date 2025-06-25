@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -11,10 +10,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
 import { submitQuestion } from './actions';
-import { Bot, User, Loader2, AlertTriangle } from 'lucide-react';
+import { Bot, User, Loader2, AlertTriangle, FileText } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'; // Removed AvatarImage as it's not used for fallback icons
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useToast } from "@/hooks/use-toast";
+import { useStudent } from '@/hooks/use-student'; // Import useStudent
+import type { AskAiAssistantQuestionsOutput } from '@/ai/flows/answer-questions';
 
 const formSchema = z.object({
   question: z.string().min(5, { message: 'Question must be at least 5 characters.' }).max(1000),
@@ -26,6 +27,7 @@ interface Message {
   id: string;
   type: 'user' | 'assistant' | 'error';
   content: string;
+  documentsCited?: AskAiAssistantQuestionsOutput['documentsCited'];
 }
 
 export default function AssistantPage() {
@@ -33,6 +35,7 @@ export default function AssistantPage() {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const { selectedStudent } = useStudent(); // Use the student hook
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -47,10 +50,16 @@ export default function AssistantPage() {
     setMessages(prev => [...prev, userMessage]);
     form.reset();
 
-    const result = await submitQuestion(data.question);
+    // Pass the selected student's ID to the action
+    const result = await submitQuestion(data.question, selectedStudent?.id || null);
 
     if (result.answer) {
-      const assistantMessage: Message = { id: (Date.now() + 1).toString(), type: 'assistant', content: result.answer };
+      const assistantMessage: Message = { 
+        id: (Date.now() + 1).toString(), 
+        type: 'assistant', 
+        content: result.answer,
+        documentsCited: result.documentsCited,
+      };
       setMessages(prev => [...prev, assistantMessage]);
     } else if (result.error) {
       const errorMessage: Message = { id: (Date.now() + 1).toString(), type: 'error', content: result.error };
@@ -75,7 +84,7 @@ export default function AssistantPage() {
 
   return (
     <>
-      <PageHeader title="EOTIS AI Assistant" description="Ask questions and get help from EOTIS AI." />
+      <PageHeader title="EOTIS AI Assistant" description="Ask questions and get help from EOTIS AI. It can access documents for the currently selected student." />
       <div className="flex flex-col h-[calc(100vh-10rem)] md:h-[calc(100vh-12rem)]">
         <Card className="flex-1 flex flex-col shadow-lg">
           <CardHeader>
@@ -109,6 +118,19 @@ export default function AssistantPage() {
                       }`}
                     >
                       <p className="text-sm whitespace-pre-wrap font-body">{message.content}</p>
+                      {message.documentsCited && message.documentsCited.length > 0 && (
+                        <div className="mt-3 pt-3 border-t border-muted-foreground/20">
+                          <h4 className="text-xs font-semibold mb-1.5 opacity-80">Sources:</h4>
+                          <div className="space-y-1">
+                            {message.documentsCited.map(doc => (
+                              <div key={doc.id} className="flex items-center gap-2 text-xs p-1.5 bg-background/50 rounded-md">
+                                <FileText className="h-3 w-3 shrink-0" />
+                                <span className="truncate" title={doc.name}>{doc.name} ({doc.type})</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                      {message.type === 'user' && (
                       <Avatar className="h-8 w-8 border">
@@ -140,7 +162,7 @@ export default function AssistantPage() {
                     <FormItem className="flex-1">
                       <FormControl>
                         <Textarea
-                          placeholder="Type your question here..."
+                          placeholder={selectedStudent ? `Ask about ${selectedStudent.name}'s documents or general topics...` : "Ask a general question..."}
                           className="min-h-[48px] resize-none"
                           disabled={isLoading}
                           {...field}
