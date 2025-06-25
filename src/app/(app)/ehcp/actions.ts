@@ -172,33 +172,54 @@ export async function deleteEhcpDocument(
   }
 }
 
-export async function updateEhcpDocumentStatus(
+export async function updateEhcpDocument(
   docId: string,
-  newStatus: 'Current' | 'Previous',
+  updates: { name: string; description?: string; status: 'Current' | 'Previous' },
   actingAdminUserId: string
-): Promise<{ success?: boolean; error?: string }> {
-  if (!actingAdminUserId) return { error: 'Admin user not authenticated for action.' };
+): Promise<{ success?: boolean; error?: string; document?: EHCPDocument }> {
+  if (!(await isAdmin(actingAdminUserId))) {
+    return { error: 'Admin privileges required to update documents.' };
+  }
 
-  const isAdminUser = await (async () => {
-    try {
-      const userDoc = await dbAdmin.collection('users').doc(actingAdminUserId).get();
-      return userDoc.exists && userDoc.data()?.isAdmin === true;
-    } catch (err) {
-      console.error('[updateEhcpDocumentStatus] Admin check failed:', err);
-      return false;
-    }
-  })();
-
-  if (!isAdminUser) {
-    return { error: 'User does not have admin privileges.' };
+  if (!docId) {
+    return { error: 'Document ID is required for an update.' };
   }
 
   try {
-    await dbAdmin.collection('ehcpDocuments').doc(docId).update({ status: newStatus });
+    const docRef = dbAdmin.collection('ehcpDocuments').doc(docId);
+    
+    await docRef.update({
+      name: updates.name,
+      description: updates.description || '',
+      status: updates.status,
+    });
+    
     revalidatePath('/ehcp');
-    return { success: true };
-  } catch (error: any) {
-    console.error('[updateEhcpDocumentStatus] Failed:', error);
-    return { error: error.message || 'Update failed.' };
+
+    const updatedDocSnap = await docRef.get();
+    if (!updatedDocSnap.exists) {
+      return { error: 'Failed to retrieve the updated document.' };
+    }
+    const updatedData = updatedDocSnap.data()!;
+
+    const returnedDocument: EHCPDocument = {
+        docId: updatedDocSnap.id,
+        name: updatedData.name,
+        uploadDate: updatedData.uploadDate.toDate().toISOString(),
+        status: updatedData.status,
+        fileUrl: updatedData.fileUrl,
+        storagePath: updatedData.storagePath,
+        fileType: updatedData.fileType,
+        description: updatedData.description,
+        uploaderUid: updatedData.uploaderUid,
+        uploaderName: updatedData.uploaderName,
+        originalFileName: updatedData.originalFileName,
+        associatedUserId: updatedData.associatedUserId,
+    };
+
+    return { success: true, document: returnedDocument };
+  } catch (err: any) {
+    console.error('[updateEhcpDocument] Update failed:', err);
+    return { error: err.message || 'Update failed.' };
   }
 }

@@ -27,18 +27,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { EhcpUploadDialog } from '@/components/ehcp/ehcp-upload-dialog';
-import { getEhcpDocuments, deleteEhcpDocument, updateEhcpDocumentStatus } from './actions';
+import { getEhcpDocuments, deleteEhcpDocument } from './actions';
 
 export default function EhcpPage() {
   const { user } = useAuth();
@@ -51,11 +41,8 @@ export default function EhcpPage() {
   const [searchTerm, setSearchTerm] = useState('');
   
   const [editingDocument, setEditingDocument] = useState<EHCPDocument | null>(null);
-  const [isStatusDialogOpen, setIsStatusDialogOpen] = useState(false);
-  const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
-  const [selectedStatus, setSelectedStatus] = useState<EHCPDocument['status'] | ''>('');
+  const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
-  const [isUpdatingStatus, setIsUpdatingStatus] = useState<string | null>(null);
 
   const fetchDocuments = useCallback(async () => {
     if (!user?.isAdmin || !selectedStudent?.id) {
@@ -143,38 +130,16 @@ export default function EhcpPage() {
     setIsDeleting(null);
   };
 
-  const openStatusDialog = (doc: EHCPDocument) => {
+  const openAddDialog = () => {
+    setEditingDocument(null);
+    setIsFormDialogOpen(true);
+  };
+  
+  const openEditDialog = (doc: EHCPDocument) => {
     setEditingDocument(doc);
-    setSelectedStatus(doc.status);
-    setIsStatusDialogOpen(true);
+    setIsFormDialogOpen(true);
   };
 
-  const handleStatusUpdate = async () => {
-    if (!editingDocument || !selectedStatus || !user?.id) {
-      toast({ variant: "destructive", title: "Error", description: "Cannot update status. Required information missing or user not authenticated." });
-      return;
-    }
-    setIsUpdatingStatus(editingDocument.docId);
-    
-    const result = await updateEhcpDocumentStatus(editingDocument.docId, selectedStatus as EHCPDocument['status'], user.id);
-    
-    if (result.success) {
-      toast({
-        title: "Status Updated",
-        description: `Status for "${editingDocument.name}" changed to ${selectedStatus}.`,
-      });
-      await fetchDocuments(); 
-    } else {
-      toast({
-        variant: "destructive",
-        title: "Status Update Failed",
-        description: result.error || "Could not update status.",
-      });
-    }
-    setIsStatusDialogOpen(false);
-    setEditingDocument(null);
-    setIsUpdatingStatus(null);
-  };
 
   const renderContent = () => {
     if (isLoading || studentIsLoading) {
@@ -237,7 +202,7 @@ export default function EhcpPage() {
               <TableBody>
                 {filteredDocuments.length > 0 ? (
                   filteredDocuments.map(doc => (
-                    <TableRow key={doc.docId} className={isDeleting === doc.docId || isUpdatingStatus === doc.docId ? 'opacity-50' : ''}>
+                    <TableRow key={doc.docId} className={isDeleting === doc.docId ? 'opacity-50' : ''}>
                       <TableCell className="font-medium max-w-[200px] truncate" title={doc.name}>{doc.name}</TableCell>
                       <TableCell>
                         <Badge variant={getStatusBadgeVariant(doc.status)}>{doc.status}</Badge>
@@ -271,12 +236,11 @@ export default function EhcpPage() {
                             <Button 
                                 variant="ghost" 
                                 size="icon" 
-                                title="Change Status" 
-                                className="hidden md:inline-flex" 
-                                onClick={() => openStatusDialog(doc)}
-                                disabled={isDeleting === doc.docId || isUpdatingStatus === doc.docId}
+                                title="Edit Document" 
+                                onClick={() => openEditDialog(doc)}
+                                disabled={isDeleting === doc.docId}
                             >
-                              {isUpdatingStatus === doc.docId ? <Loader2 className="h-4 w-4 animate-spin" /> : <Edit className="h-4 w-4" />}
+                              <Edit className="h-4 w-4" />
                             </Button>
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
@@ -284,8 +248,8 @@ export default function EhcpPage() {
                                     variant="ghost" 
                                     size="icon" 
                                     title="Delete Document" 
-                                    className="text-destructive hover:text-destructive hidden md:inline-flex"
-                                    disabled={isDeleting === doc.docId || isUpdatingStatus === doc.docId}
+                                    className="text-destructive hover:text-destructive"
+                                    disabled={isDeleting === doc.docId}
                                 >
                                   {isDeleting === doc.docId ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                                 </Button>
@@ -328,7 +292,7 @@ export default function EhcpPage() {
     <>
       <PageHeader title="EHCP Documents" description="Manage current and previous Education, Health and Care Plans.">
         {user?.isAdmin && (
-          <Button onClick={() => setIsUploadDialogOpen(true)} disabled={!user || !selectedStudent}>
+          <Button onClick={openAddDialog} disabled={!user || !selectedStudent}>
             <PlusCircle className="mr-2 h-4 w-4" /> Upload Document
           </Button>
         )}
@@ -352,49 +316,13 @@ export default function EhcpPage() {
       
       {user?.isAdmin && selectedStudent && (
         <EhcpUploadDialog
-          isOpen={isUploadDialogOpen}
-          onOpenChange={setIsUploadDialogOpen}
-          onUploadComplete={fetchDocuments}
+          isOpen={isFormDialogOpen}
+          onOpenChange={setIsFormDialogOpen}
+          onSave={fetchDocuments}
           actingUserId={user.id} 
           associatedUserId={selectedStudent.id}
+          document={editingDocument}
         />
-      )}
-      
-      {editingDocument && (
-        <Dialog open={isStatusDialogOpen} onOpenChange={(isOpen) => {
-          setIsStatusDialogOpen(isOpen);
-          if (!isOpen) setEditingDocument(null);
-        }}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Change Status for "{editingDocument.name}"</DialogTitle>
-              <DialogDescription>Select the new status for this document.</DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="status" className="text-right">
-                  Status
-                </Label>
-                <Select value={selectedStatus} onValueChange={(value: EHCPDocument['status']) => setSelectedStatus(value)}>
-                  <SelectTrigger className="col-span-3">
-                    <SelectValue placeholder="Select status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Current">Current</SelectItem>
-                    <SelectItem value="Previous">Previous</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => { setIsStatusDialogOpen(false); setEditingDocument(null); }} disabled={isUpdatingStatus === editingDocument.docId}>Cancel</Button>
-              <Button onClick={handleStatusUpdate} disabled={isUpdatingStatus === editingDocument.docId || !selectedStatus || selectedStatus === editingDocument.status || !user?.id}>
-                {isUpdatingStatus === editingDocument.docId ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
-                Save Status
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
       )}
     </>
   );
