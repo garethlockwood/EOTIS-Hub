@@ -162,6 +162,60 @@ export async function addFinancialDocument(
 }
 
 
+// Action to update a financial document
+export async function updateFinancialDocument(
+  docId: string,
+  updates: { name: string; type: FinancialDocument['type']; status: FinancialDocument['status']; amount?: number; },
+  adminId: string
+): Promise<{ success?: boolean; error?: string; document?: FinancialDocument }> {
+  if (!(await isAdmin(adminId))) {
+    return { error: 'Permission denied. Only admins can update documents.' };
+  }
+
+  if (!docId) {
+    return { error: 'Document ID is required for an update.' };
+  }
+
+  try {
+    const docRef = dbAdmin.collection('financialDocuments').doc(docId);
+    
+    const updatePayload: any = { ...updates };
+
+    // Firestore throws an error if you try to update with 'undefined' or NaN
+    if (updates.amount === undefined || isNaN(updates.amount)) {
+      delete updatePayload.amount;
+    }
+
+    await docRef.update(updatePayload);
+    
+    revalidatePath('/finances');
+
+    const updatedDocSnap = await docRef.get();
+    if (!updatedDocSnap.exists) {
+      return { error: 'Failed to retrieve the updated document.' };
+    }
+    const updatedData = updatedDocSnap.data()!;
+
+    const returnedDocument: FinancialDocument = {
+        id: updatedDocSnap.id,
+        name: updatedData.name,
+        type: updatedData.type,
+        uploadDate: (updatedData.uploadDate as Timestamp).toDate().toISOString(),
+        fileUrl: updatedData.fileUrl,
+        storagePath: updatedData.storagePath,
+        amount: updatedData.amount,
+        status: updatedData.status,
+        uploaderUid: updatedData.uploaderUid,
+        studentId: updatedData.studentId,
+    };
+
+    return { success: true, document: returnedDocument };
+  } catch (err: any) {
+    console.error('[updateFinancialDocument] Update failed:', err);
+    return { error: err.message || 'Update failed.' };
+  }
+}
+
 // Action to delete a financial document
 export async function deleteFinancialDocument(
     docId: string,

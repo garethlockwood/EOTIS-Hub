@@ -19,8 +19,8 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
-import { addFinancialDocument } from '@/app/(app)/finances/actions';
-import { Loader2, UploadCloud } from 'lucide-react';
+import { addFinancialDocument, updateFinancialDocument } from '@/app/(app)/finances/actions';
+import { Loader2, UploadCloud, Save } from 'lucide-react';
 import type { FinancialDocument } from '@/types';
 import { getCurrencySymbol } from '@/lib/utils';
 
@@ -47,28 +47,31 @@ export function FinancialDocDialog({ isOpen, onOpenChange, onSave, document, stu
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const isEditing = !!document;
 
   const form = useForm<FormValues>({
     resolver: zodResolver(financialDocSchema),
   });
 
   useEffect(() => {
-    if (document) {
-      form.reset({
-        name: document.name,
-        type: document.type,
-        amount: document.amount,
-        status: document.status,
-        file: undefined,
-      });
-    } else {
-      form.reset({
-        name: '',
-        type: 'Invoice',
-        amount: 0,
-        status: 'Unpaid',
-        file: undefined,
-      });
+    if (isOpen) {
+      if (document) {
+        form.reset({
+          name: document.name,
+          type: document.type,
+          amount: document.amount,
+          status: document.status,
+          file: undefined,
+        });
+      } else {
+        form.reset({
+          name: '',
+          type: 'Invoice',
+          amount: 0,
+          status: 'Unpaid',
+          file: undefined,
+        });
+      }
     }
   }, [document, isOpen, form]);
 
@@ -87,24 +90,33 @@ export function FinancialDocDialog({ isOpen, onOpenChange, onSave, document, stu
     }
     
     setIsSubmitting(true);
+    let result;
 
-    const formData = new FormData();
-    if (data.file?.[0]) {
-      formData.append('file', data.file[0]);
+    if (isEditing && document) {
+        const updatePayload = {
+            name: data.name,
+            type: data.type,
+            status: data.status,
+            amount: data.amount,
+        };
+        result = await updateFinancialDocument(document.id, updatePayload, adminUser.id);
+    } else {
+        const formData = new FormData();
+        if (data.file?.[0]) {
+          formData.append('file', data.file[0]);
+        }
+        formData.append('name', data.name);
+        formData.append('type', data.type);
+        formData.append('status', data.status);
+        formData.append('studentId', studentId);
+        if (data.amount !== undefined) {
+          formData.append('amount', String(data.amount));
+        }
+        result = await addFinancialDocument(formData, adminUser.id);
     }
-    formData.append('name', data.name);
-    formData.append('type', data.type);
-    formData.append('status', data.status);
-    formData.append('studentId', studentId);
-    if (data.amount !== undefined) {
-      formData.append('amount', String(data.amount));
-    }
-    
-    // Note: Update action is not implemented in this simplified dialog
-    const result = await addFinancialDocument(formData, adminUser.id);
     
     if (result.success) {
-      toast({ title: 'Document Saved', description: `"${data.name}" has been successfully saved.` });
+      toast({ title: `Document ${isEditing ? 'Updated' : 'Saved'}`, description: `"${data.name}" has been successfully processed.` });
       onSave(); // Trigger refetch on the page
       handleOpenChange(false);
     } else {
@@ -209,8 +221,10 @@ export function FinancialDocDialog({ isOpen, onOpenChange, onSave, document, stu
                       ref={fileInputRef}
                       {...fieldProps}
                       onChange={(event) => onChange(event.target.files)}
+                      disabled={isEditing}
                     />
                   </FormControl>
+                  {isEditing && <p className="text-xs text-muted-foreground mt-1">File replacement is not supported during edit.</p>}
                   <FormMessage />
                 </FormItem>
               )}
@@ -221,7 +235,7 @@ export function FinancialDocDialog({ isOpen, onOpenChange, onSave, document, stu
                 Cancel
               </Button>
               <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UploadCloud className="mr-2 h-4 w-4" />}
+                {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : (isEditing ? <Save className="mr-2 h-4 w-4" />: <UploadCloud className="mr-2 h-4 w-4" />)}
                 {document ? 'Save Changes' : 'Add Document'}
               </Button>
             </DialogFooter>

@@ -160,7 +160,7 @@ export default function FinancesPage() {
                           <Download className="h-4 w-4" />
                         </a>
                       </Button>
-                       <Button variant="ghost" size="icon" disabled title="Edit (disabled)"> {/* onClick={() => { setEditingDoc(doc); setIsFormOpen(true); }} */}
+                       <Button variant="ghost" size="icon" title="Edit Document" onClick={() => { setEditingDoc(doc); setIsFormOpen(true); }} disabled={!user?.isAdmin}>
                         <Edit className="h-4 w-4" />
                       </Button>
                        {user?.isAdmin && (
