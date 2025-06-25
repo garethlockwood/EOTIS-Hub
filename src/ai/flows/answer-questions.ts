@@ -3,7 +3,7 @@
 
 /**
  * @fileOverview An AI assistant for answering questions about the EOTIS platform, EHCP process, and educational law (UK).
- * It can also access user-specific documents from the repository and EHCP sections.
+ * It can also access user-specific documents from the repository and EHCP sections by reading their content from Firebase Storage.
  *
  * - askAiAssistantQuestions - A function that handles the question answering process.
  * - AskAiAssistantQuestionsInput - The input type for the askAiAssistantQuestions function.
@@ -14,6 +14,13 @@ import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 import { getEhcpDocuments } from '@/app/(app)/ehcp/actions';
 import { getContentDocuments } from '@/app/(app)/repository/actions';
+import { storageAdmin } from '@/lib/firebase-admin';
+import mammoth from 'mammoth';
+import pdf from 'pdf-parse';
+import * as xlsx from 'xlsx';
+import { tmpdir } from 'os';
+import { promises as fs } from 'fs';
+import path from 'path';
 
 const AskAiAssistantQuestionsInputSchema = z.object({
   question: z.string().describe('The question to ask the AI assistant.'),
@@ -35,6 +42,34 @@ export async function askAiAssistantQuestions(input: AskAiAssistantQuestionsInpu
   return askAiAssistantQuestionsFlow(input);
 }
 
+// Helper function to extract text from different file types
+async function extractTextFromFile(filePath: string, fileExtension: string): Promise<string> {
+    try {
+        const buffer = await fs.readFile(filePath);
+        if (fileExtension.includes('pdf')) {
+            const data = await pdf(buffer);
+            return data.text;
+        } else if (fileExtension.includes('word')) { // .doc, .docx
+            const { value } = await mammoth.extractRawText({ buffer });
+            return value;
+        } else if (fileExtension.includes('spreadsheetml')) { // .xlsx
+            const workbook = xlsx.read(buffer, { type: 'buffer' });
+            let fullText = '';
+            workbook.SheetNames.forEach(sheetName => {
+                const sheet = workbook.Sheets[sheetName];
+                const csv = xlsx.utils.sheet_to_csv(sheet);
+                fullText += `Sheet: ${sheetName}\n${csv}\n\n`;
+            });
+            return fullText;
+        }
+        return 'Unsupported file type for text extraction.';
+    } catch (error: any) {
+        console.error(`Error extracting text from ${filePath}:`, error);
+        return `Error extracting text: ${error.message}`;
+    }
+}
+
+
 const getDocumentContext = ai.defineTool(
   {
     name: 'getDocumentContext',
@@ -47,7 +82,7 @@ const getDocumentContext = ai.defineTool(
         id: z.string(),
         name: z.string(),
         type: z.string(),
-        description: z.string().optional().describe("The full text content of the document. This may start with a user-provided summary, followed by the full text if available."),
+        description: z.string().optional().describe("The user-provided summary of the document, followed by the full extracted text content of the document if available."),
         status: z.string().optional(),
         uploadDate: z.string(),
       })
@@ -56,45 +91,68 @@ const getDocumentContext = ai.defineTool(
   async ({ studentId }) => {
     const allDocuments: any[] = [];
     
-    // Fetch and map EHCP documents
-    const ehcpResult = await getEhcpDocuments(studentId);
-    if (ehcpResult.documents) {
-      allDocuments.push(...ehcpResult.documents.map(d => {
-        // --- SIMULATION for "Amelia Lockwood" ---
-        // In a real application, you would implement text extraction from the PDF/DOCX file here.
-        // For now, we simulate this for a specific document to demonstrate the AI's capability.
-        let fullTextDescription = d.description || 'No description provided.';
-        if (d.name.toLowerCase().includes('amelia lockwood')) {
-            fullTextDescription += `\n\n--- FULL TEXT (SIMULATED) ---\n\nSection F: Provision for Special Educational Needs\n\nPhysical Education (PE): Amelia requires a differentiated PE curriculum. Provision must be made for 1:1 support from a teaching assistant during all PE lessons to ensure her safety and facilitate participation. Weekly hydrotherapy sessions (1 hour) are to be provided by the local authority at the community pool. Amelia will also have access to adapted sports equipment as recommended by the Occupational Therapist in Section E.`;
+    const [ehcpResult, contentResult] = await Promise.all([
+        getEhcpDocuments(studentId),
+        getContentDocuments()
+    ]);
+
+    const processDocument = async (doc: any, docType: string) => {
+        let fullTextDescription = doc.description || 'No description provided.';
+        const filePath = doc.storagePath;
+
+        // Check for a valid file path and a supported file type
+        if (filePath && (doc.fileType?.includes('pdf') || doc.fileType?.includes('word') || doc.fileType?.includes('spreadsheetml'))) {
+            const tempFilePath = path.join(tmpdir(), path.basename(filePath));
+            try {
+                // Download the file from Firebase Storage to a temporary local path
+                await storageAdmin.bucket().file(filePath).download({ destination: tempFilePath });
+                
+                // Determine the file extension for the parser
+                let fileExtension = 'other';
+                if (doc.fileType.includes('pdf')) fileExtension = 'pdf';
+                else if (doc.fileType.includes('word')) fileExtension = 'docx';
+                else if (doc.fileType.includes('spreadsheetml')) fileExtension = 'xlsx';
+
+                // Extract text using the appropriate parser
+                const extractedText = await extractTextFromFile(tempFilePath, fileExtension);
+                fullTextDescription += `\n\n--- FULL TEXT ---\n\n${extractedText}`;
+
+            } catch (e: any) {
+                console.warn(`Could not read file content for "${doc.name}" from ${filePath}:`, e.message);
+                fullTextDescription += `\n\n--- FILE CONTENT UNAVAILABLE ---`;
+            } finally {
+                // Clean up the temporary file
+                try { await fs.unlink(tempFilePath); } catch (e) { /* ignore if already deleted */ }
+            }
         }
-        // --- END SIMULATION ---
-        
+
         return {
-          id: d.docId,
-          name: d.name,
-          type: 'EHCP Document',
-          description: fullTextDescription,
-          status: d.status,
-          uploadDate: d.uploadDate,
+            id: doc.id || doc.docId,
+            name: doc.name,
+            type: docType,
+            description: fullTextDescription,
+            status: doc.status || 'N/A',
+            uploadDate: doc.uploadDate,
         };
-      }));
+    };
+
+    const docProcessingPromises: Promise<any>[] = [];
+
+    // Process EHCP documents
+    if (ehcpResult.documents) {
+        ehcpResult.documents.forEach(d => docProcessingPromises.push(processDocument(d, 'EHCP Document')));
     }
-    
-    // Fetch and map Content Repository documents
-    const contentResult = await getContentDocuments();
+
+    // Process Content Repository documents
     if (contentResult.documents) {
-      const relevantContentDocs = contentResult.documents.filter(
-        (doc) => !doc.associatedUserId || doc.associatedUserId === studentId
-      );
-      allDocuments.push(...relevantContentDocs.map(d => ({
-        id: d.id,
-        name: d.name,
-        type: d.type,
-        description: d.description || 'No description provided. The full text is not available for this document type yet.',
-        status: 'N/A', // Content docs don't have a status field like EHCP
-        uploadDate: d.uploadDate,
-      })));
+        const relevantContentDocs = contentResult.documents.filter(
+            (doc) => !doc.associatedUserId || doc.associatedUserId === studentId
+        );
+        relevantContentDocs.forEach(d => docProcessingPromises.push(processDocument(d, d.type)));
     }
+
+    const processedDocuments = await Promise.all(docProcessingPromises);
+    allDocuments.push(...processedDocuments);
 
     return allDocuments;
   }
@@ -117,10 +175,10 @@ You have deep expertise in:
 Follow these steps to answer the question:
 1.  Analyze the user's question.
 2.  If the question is general (e.g., "What is an EHCP?"), answer it using your expert knowledge.
-3.  If the question requires information about a specific student's documents (e.g., "What does my EHCP say about PE?"), you **MUST** use the \`getDocumentContext\` tool to fetch the relevant document content. The tool provides the document's text in the 'description' field.
-4.  After using the tool, carefully review the 'description' of the returned documents to formulate your answer.
+3.  If the question requires information about a specific student's documents (e.g., "What does my EHCP say about PE?"), you **MUST** use the \`getDocumentContext\` tool to fetch the relevant document content. The tool provides the document's text in the 'description' field. This field contains both a user-provided summary and the full extracted text under a "--- FULL TEXT ---" heading.
+4.  After using the tool, carefully review the **full text** of the returned documents to formulate your answer.
 5.  If you use information from one or more documents, you **MUST** cite them in the \`documentsCited\` field of your JSON response. Include the document's id, name, and type.
-6.  If the documents do not contain the answer, state that you could not find the information in the provided files.
+6.  If the documents do not contain the answer, or if the file content is unavailable or unreadable, state that you could not find the information in the provided files.
 7.  If the question is outside your expertise, clearly state that.
 
 User Question: {{{question}}}
