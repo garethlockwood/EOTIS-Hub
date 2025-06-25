@@ -37,7 +37,7 @@ export async function askAiAssistantQuestions(input: AskAiAssistantQuestionsInpu
 const getDocumentContext = ai.defineTool(
   {
     name: 'getDocumentContext',
-    description: 'Retrieves metadata (name, type, description, status) for all documents related to a student. This includes their EHCP files and any associated files from the content repository, as well as global documents. Use this to answer questions about the user\'s specific files.',
+    description: "Retrieves the content and metadata for all documents related to a student. This includes their EHCP files and any associated files from the content repository. Use this tool to answer questions about the contents of a user's specific files. The 'description' field of each returned document contains its full text content.",
     inputSchema: z.object({
       studentId: z.string().describe('The ID of the student to fetch documents for.'),
     }),
@@ -46,7 +46,7 @@ const getDocumentContext = ai.defineTool(
         id: z.string(),
         name: z.string(),
         type: z.string(),
-        description: z.string().optional(),
+        description: z.string().optional().describe("The full text content of the document."),
         status: z.string().optional(),
         uploadDate: z.string(),
       })
@@ -105,9 +105,9 @@ You have a brilliant understanding of:
 When answering questions:
 - Be clear, concise, and easy to understand. Avoid overly legalistic jargon where possible, or explain it if necessary.
 - Provide actionable advice and point to official resources or next steps where appropriate.
-- **IMPORTANT**: If the user's question appears to reference their own documents (e.g., "What does section F of my EHCP say?", "Summarize my latest report"), you MUST use the \`getDocumentContext\` tool to fetch a list of their available documents. Use the information from the returned documents (like name, description, status) to formulate your answer.
-- If you use information from a specific document to answer the question, you MUST cite the document(s) in the \`documentsCited\` field of your response.
-- If no relevant documents are found after using the tool, state that you couldn't find any specific documents to reference but can provide general information.
+- **IMPORTANT**: If a user's question requires information from their specific documents (e.g., "What does my EHCP say about X?"), you MUST use the \`getDocumentContext\` tool to fetch their documents. The full text of each document is available in the 'description' field of the returned objects. You must base your answer on the content found in that 'description' field. Do not just state that you are accessing the document; provide the answer based on its contents.
+- If you use information from a specific document's 'description' field to answer the question, you MUST cite that document in the \`documentsCited\` field of your response.
+- If no relevant documents are found after using the tool, or if the 'description' field is empty or says 'No description provided.', state that you couldn't find any specific content to reference but can provide general information.
 - Do not invent information about documents you haven't seen.
 - If the question is outside your expertise, clearly state that.
 
