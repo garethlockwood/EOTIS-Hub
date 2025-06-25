@@ -45,14 +45,16 @@ export async function askAiAssistantQuestions(input: AskAiAssistantQuestionsInpu
 // Helper function to extract text from different file types
 async function extractTextFromFile(filePath: string, fileExtension: string): Promise<string> {
     try {
-        const buffer = await fs.readFile(filePath);
         if (fileExtension.includes('pdf')) {
-            const data = await pdf(buffer);
+            // Pass the file path directly to pdf-parse to avoid potential bundling issues with its dependencies.
+            const data = await pdf(filePath);
             return data.text;
         } else if (fileExtension.includes('word')) { // .doc, .docx
+            const buffer = await fs.readFile(filePath);
             const { value } = await mammoth.extractRawText({ buffer });
             return value;
         } else if (fileExtension.includes('spreadsheetml')) { // .xlsx
+            const buffer = await fs.readFile(filePath);
             const workbook = xlsx.read(buffer, { type: 'buffer' });
             let fullText = '';
             workbook.SheetNames.forEach(sheetName => {
