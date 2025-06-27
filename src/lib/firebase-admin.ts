@@ -1,6 +1,5 @@
 
 // src/lib/firebase-admin.ts
-import 'dotenv/config'; // ✅ Ensure .env loads in CLI + runtime
 import { getApps, initializeApp, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
