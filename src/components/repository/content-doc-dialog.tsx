@@ -205,9 +205,8 @@ export function ContentDocDialog({ isOpen, onOpenChange, onSave, document, assoc
   return (
       <Dialog open={isOpen} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-[580px]">
-          <DialogHeader>
-            <DialogTitle className="font-headline">{document ? 'Edit Document' : 'Upload New Document'}</DialogTitle>
-            <DialogDescription>
+          <DialogHeader>            <DialogTitle className="font-headline">{document ? 'Edit Document' : 'Upload New Document'}</DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground">
               {document ? 'Update the details of this document.' : 'Select a file and provide details. Max 10MB.'}
             </DialogDescription>
           </DialogHeader>
