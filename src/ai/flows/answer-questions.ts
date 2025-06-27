@@ -151,11 +151,32 @@ const getDocumentContext = ai.defineTool(
   }
 );
 
+const searchWeb = ai.defineTool(
+  {
+    name: 'searchWeb',
+    description: 'Searches the web for up-to-date information on general knowledge topics, current events, or educational law. Do not use this for information specific to the user or their documents.',
+    inputSchema: z.object({
+      query: z.string().describe('The search query.'),
+    }),
+    outputSchema: z.string().describe('A summary of the web search results.'),
+  },
+  async ({ query }) => {
+    // DEVELOPER_TODO: Implement a real web search API call here.
+    // This requires an API key for a service like Google Custom Search or Brave Search.
+    // Example:
+    // const searchResults = await braveSearch.search(query);
+    // return searchResults.summary;
+    console.log(`[Web Search Tool] Searched for: "${query}". Returning placeholder response.`);
+    return "Web search is not fully implemented. To enable this, a developer must integrate a search API (e.g., Google Custom Search, Brave Search) and add the corresponding API key to the environment variables.";
+  }
+);
+
+
 const prompt = ai.definePrompt({
   name: 'askAiAssistantQuestionsPrompt',
   input: { schema: AskAiAssistantQuestionsInputSchema },
   output: { schema: AskAiAssistantQuestionsOutputSchema },
-  tools: [getDocumentContext],
+  tools: [getDocumentContext, searchWeb],
   // Relax safety settings to reduce the chance of the model returning null on valid documents.
   config: {
     safetySettings: [
@@ -177,21 +198,25 @@ const prompt = ai.definePrompt({
       },
     ],
   },
-  prompt: `You are an expert AI assistant for the EOTIS Hub. You will answer user questions based on general knowledge or by analyzing the content of their documents.
+  prompt: `You are an expert AI assistant for the EOTIS Hub. You have two primary capabilities:
+1.  **Document Analysis**: You can read the user's uploaded documents (EHCPs, reports, etc.) to answer specific questions about their content.
+2.  **Web Search**: You can search the web for general knowledge questions, information about educational law, or current events.
 
 **Your primary instruction is to ALWAYS respond with a valid JSON object that adheres to the output schema.**
 
-When a user asks a question about a specific document (like an EHCP, report, or lesson plan), you MUST use the \`getDocumentContext\` tool to get the document's text.
+**Tool Usage Guide:**
+-   If the user's question is about their own files, student data, or specific documents (like an EHCP), you MUST use the \`getDocumentContext\` tool.
+-   If the user's question is about general knowledge, laws, or topics that require up-to-date information, you MUST use the \`searchWeb\` tool.
 
-After you get the text from the tool, your ONLY job is to analyze that text and formulate a direct answer.
+After you get information from a tool, your ONLY job is to analyze that information and formulate a direct answer.
 
 **CRITICAL RULES:**
 1.  **DO NOT** talk about your process.
 2.  **DO NOT** say you need to use a tool. Just use it.
-3.  **DO NOT** say you cannot analyze documents. You can.
-4.  **DO** base your answer on the text you receive from the tool.
-5.  **DO** cite the documents you used in the \`documentsCited\` field.
-6.  **DO** state that information is not in the document if you can't find it after looking.
+3.  **DO NOT** say you cannot analyze documents or search the web. You can.
+4.  **DO** base your answer on the information you receive from the tool.
+5.  **DO** cite any documents you used in the \`documentsCited\` field.
+6.  **DO** state that the information was not found in the document or on the web if you cannot find it after looking.
 
 User Question: {{{question}}}
 {{#if studentId}}
