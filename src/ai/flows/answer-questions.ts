@@ -156,6 +156,27 @@ const prompt = ai.definePrompt({
   input: { schema: AskAiAssistantQuestionsInputSchema },
   output: { schema: AskAiAssistantQuestionsOutputSchema },
   tools: [getDocumentContext],
+  // Relax safety settings to reduce the chance of the model returning null on valid documents.
+  config: {
+    safetySettings: [
+      {
+        category: 'HARM_CATEGORY_HATE_SPEECH',
+        threshold: 'BLOCK_ONLY_HIGH',
+      },
+      {
+        category: 'HARM_CATEGORY_DANGEROUS_CONTENT',
+        threshold: 'BLOCK_NONE',
+      },
+      {
+        category: 'HARM_CATEGORY_HARASSMENT',
+        threshold: 'BLOCK_MEDIUM_AND_ABOVE',
+      },
+      {
+        category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT',
+        threshold: 'BLOCK_LOW_AND_ABOVE',
+      },
+    ],
+  },
   prompt: `You are EOTIS AI, an expert AI consultant for parents and educators in the UK.
 
 Your primary goal is to answer the user's question accurately and concisely. **Your final response MUST be a valid JSON object matching the specified output schema.**
@@ -187,13 +208,27 @@ const askAiAssistantQuestionsFlow = ai.defineFlow(
     outputSchema: AskAiAssistantQuestionsOutputSchema,
   },
   async (input) => {
-    const { output } = await prompt(input);
-    
+    // Use .generate() to get the full response object for better debugging.
+    const llmResponse = await prompt.generate({ input });
+    const output = llmResponse.output();
+
     if (!output) {
-      console.error("AI assistant returned a null output. Input was:", JSON.stringify(input));
+      // Log the full response for diagnostics, including any finish reasons.
+      console.error(
+        'AI assistant returned a null/undefined output. Full response:',
+        JSON.stringify(llmResponse.toJSON(), null, 2)
+      );
+
+      // Provide a more specific error if we know why it failed (e.g., safety).
+      const finishReason = llmResponse.candidates[0]?.finishReason;
+      if (finishReason === 'SAFETY') {
+        throw new Error('The AI assistant could not process the document due to its safety filters. This can sometimes happen with complex legal or medical documents.');
+      }
+      
       throw new Error('The AI assistant failed to generate a valid response. This might be a temporary issue. Please try rephrasing your question.');
     }
     
     return output;
   }
 );
+    
