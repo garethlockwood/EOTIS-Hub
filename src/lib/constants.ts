@@ -9,7 +9,6 @@ export const NAV_ITEMS: NavItem[] = [
   { title: 'Finances', href: '/finances', icon: CreditCard },
   { title: 'Content Repository', href: '/repository', icon: FolderKanban },
   { title: 'EHCP Documents', href: '/ehcp', icon: ClipboardList },
-  { title: 'AI Assistant', href: '/assistant', icon: Sparkles },
 ];
 
 export const PLACEHOLDER_TODOS: TodoItem[] = [
