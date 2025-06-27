@@ -146,3 +146,15 @@ export interface EHCPDocument {
   originalFileName: string;
   associatedUserId: string; // UID of the user (e.g., student) this document belongs to
 }
+
+export interface BankAccount {
+  id: string; // The account ID from GoCardless
+  institutionId: string;
+  institutionName: string;
+  institutionLogo?: string;
+  requisitionId: string;
+  iban?: string;
+  accountName?: string;
+  ownerName?: string;
+  linkedAt: string; // ISO string
+}

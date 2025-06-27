@@ -88,4 +88,4 @@ export const onFileUpload = functions.storage
     );
   });
 
-export { createBankLink } from "./gocardless";
+export { createBankLink, completeBankConnection } from "./gocardless";
