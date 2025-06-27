@@ -32,7 +32,6 @@ export async function getManagedStudents(
     const snapshot = await dbAdmin
       .collection('students') // Query the 'students' collection
       .where('managedBy', '==', adminId)
-      .orderBy('name', 'asc') // Re-enabled server-side sorting
       .get();
 
     if (snapshot.empty) {
@@ -52,13 +51,12 @@ export async function getManagedStudents(
       } as Student;
     });
 
+    // Sort in-memory to avoid needing a composite index
+    students.sort((a,b) => a.name.localeCompare(b.name));
+
     return { students };
   } catch (error: any) {
     console.error('[getManagedStudents] Error:', error);
-    // Provide a helpful error message if the index is missing
-    if (error.code === 'FAILED_PRECONDITION') {
-        return { error: 'Firestore index required. Please create a composite index for the "students" collection on (managedBy ASC, name ASC).' };
-    }
     return { error: `Failed to fetch students: ${error.message}` };
   }
 }

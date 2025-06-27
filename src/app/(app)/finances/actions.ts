@@ -35,7 +35,6 @@ export async function getFinancialDocuments(
     const snapshot = await dbAdmin
       .collection('financialDocuments')
       .where('studentId', '==', studentId)
-      .orderBy('uploadDate', 'desc')
       .get();
     
     if (snapshot.empty) {
@@ -58,12 +57,12 @@ export async function getFinancialDocuments(
       } as FinancialDocument;
     });
 
+    // Sort in-memory to avoid needing a composite index
+    documents.sort((a, b) => new Date(b.uploadDate).getTime() - new Date(a.uploadDate).getTime());
+
     return { documents };
   } catch (error: any) {
     console.error('[getFinancialDocuments] Error:', error);
-    if (error.code === 'FAILED_PRECONDITION') {
-        return { error: 'Firestore index required. Please create an index on (studentId ASC, uploadDate DESC) in the `financialDocuments` collection.' };
-    }
     return { error: `Failed to fetch financial documents: ${error.message}` };
   }
 }

@@ -34,7 +34,6 @@ export async function getEhcpDocuments(
     const snapshot = await dbAdmin
       .collection('ehcpDocuments')
       .where('associatedUserId', '==', studentId)
-      .orderBy('uploadDate', 'desc')
       .get();
 
     const documents = snapshot.docs.map(docSnap => {
@@ -54,6 +53,10 @@ export async function getEhcpDocuments(
         associatedUserId: data.associatedUserId,
       } as EHCPDocument;
     });
+
+    // Sort in-memory
+    documents.sort((a, b) => new Date(b.uploadDate).getTime() - new Date(a.uploadDate).getTime());
+    
     return { documents };
   } catch (error: any) {
     console.error('[getEhcpDocuments] Error:', error);

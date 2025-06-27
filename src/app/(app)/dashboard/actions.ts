@@ -1,3 +1,4 @@
+
 'use server';
 
 import { dbAdmin } from '@/lib/firebase-admin';
@@ -14,7 +15,6 @@ export async function getTodos(studentId: string): Promise<{ todos?: TodoItem[];
     const snapshot = await dbAdmin
       .collection('todos')
       .where('studentId', '==', studentId)
-      .orderBy('createdAt', 'desc')
       .get();
     
     const todos = snapshot.docs.map(doc => {
@@ -28,12 +28,12 @@ export async function getTodos(studentId: string): Promise<{ todos?: TodoItem[];
       } as TodoItem;
     });
 
+    // Sort in-memory instead of in the query
+    todos.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
     return { todos };
   } catch (error: any) {
     console.error('[getTodos] Error:', error);
-    if (error.code === 'FAILED_PRECONDITION') {
-        return { error: 'Firestore index required for todos. Please create one.' };
-    }
     return { error: `Failed to fetch todos: ${error.message}` };
   }
 }

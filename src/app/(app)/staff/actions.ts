@@ -32,7 +32,6 @@ export async function getStaffForStudent(
     const snapshot = await dbAdmin
       .collection('staff')
       .where('studentIds', 'array-contains', studentId)
-      .orderBy('name', 'asc') // Re-enabled server-side sorting
       .get();
     
     if (snapshot.empty) {
@@ -47,12 +46,12 @@ export async function getStaffForStudent(
       } as StaffMember;
     });
 
+    // Sort in-memory to avoid needing a composite index
+    staffList.sort((a, b) => a.name.localeCompare(b.name));
+
     return { staff: staffList };
   } catch (error: any) {
     console.error('[getStaffForStudent] Error:', error);
-    if (error.code === 'FAILED_PRECONDITION') {
-        return { error: 'Firestore index required. Please create a composite index on (studentIds array-contains, name ASC) in the `staff` collection using the link in the terminal error log.' };
-    }
     return { error: `Failed to fetch staff: ${error.message}` };
   }
 }
@@ -100,9 +99,6 @@ export async function addStaffMember(
 // Fetches just the names of all tutors
 export async function getTutorNames(): Promise<{ tutors?: string[]; error?: string }> {
   try {
-    // Note: .orderBy('name', 'asc') was removed to prevent an error on fresh databases.
-    // Sorting is handled client-side. For large datasets, create the composite index
-    // in Firestore on (type ASC, name ASC) and re-add .orderBy('name', 'asc') here.
     const snapshot = await dbAdmin
       .collection('staff')
       .where('type', '==', 'Tutor')
@@ -113,12 +109,13 @@ export async function getTutorNames(): Promise<{ tutors?: string[]; error?: stri
     }
     
     const tutors = snapshot.docs.map(doc => doc.data().name as string);
+
+    // Sort in-memory
+    tutors.sort((a, b) => a.localeCompare(b));
+
     return { tutors };
   } catch (error: any) {
      console.error('[getTutorNames] Error:', error);
-    if (error.code === 'FAILED_PRECONDITION') {
-        return { error: 'Firestore index required. Please create an index on (type ASC, name ASC) in the `staff` collection.' };
-    }
     return { error: `Failed to fetch tutors: ${error.message}` };
   }
 }
