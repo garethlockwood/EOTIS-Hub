@@ -42,36 +42,6 @@ export async function askAiAssistantQuestions(input: AskAiAssistantQuestionsInpu
   return askAiAssistantQuestionsFlow(input);
 }
 
-// Helper function to extract text from different file types
-async function extractTextFromFile(filePath: string, fileExtension: string): Promise<string> {
-    try {
-        if (fileExtension.includes('pdf')) {
-            const buffer = await fs.readFile(filePath);
-            const data = await pdf(buffer);
-            return data.text;
-        } else if (fileExtension.includes('word')) { // .doc, .docx
-            const buffer = await fs.readFile(filePath);
-            const { value } = await mammoth.extractRawText({ buffer });
-            return value;
-        } else if (fileExtension.includes('spreadsheetml')) { // .xlsx
-            const buffer = await fs.readFile(filePath);
-            const workbook = xlsx.read(buffer, { type: 'buffer' });
-            let fullText = '';
-            workbook.SheetNames.forEach(sheetName => {
-                const sheet = workbook.Sheets[sheetName];
-                const csv = xlsx.utils.sheet_to_csv(sheet);
-                fullText += `Sheet: ${sheetName}\n${csv}\n\n`;
-            });
-            return fullText;
-        }
-        return 'Unsupported file type for text extraction.';
-    } catch (error: any) {
-        console.error(`Error extracting text from ${filePath}:`, error);
-        return `Error extracting text: ${error.message}`;
-    }
-}
-
-
 const getDocumentContext = ai.defineTool(
   {
     name: 'getDocumentContext',
@@ -101,26 +71,39 @@ const getDocumentContext = ai.defineTool(
     const processDocument = async (doc: any, docType: string) => {
         let fullTextDescription = doc.description || 'No description provided.';
         const filePath = doc.storagePath;
+        const fileType = doc.fileType || '';
 
         // Check for a valid file path and a supported file type
-        if (filePath && (doc.fileType?.includes('pdf') || doc.fileType?.includes('word') || doc.fileType?.includes('spreadsheetml'))) {
+        if (filePath && (fileType.includes('pdf') || fileType.includes('word') || fileType.includes('spreadsheetml'))) {
             const tempFilePath = path.join(tmpdir(), path.basename(filePath));
             try {
                 // Download the file from Firebase Storage to a temporary local path
                 await storageAdmin.bucket().file(filePath).download({ destination: tempFilePath });
                 
-                // Determine the file extension for the parser
-                let fileExtension = 'other';
-                if (doc.fileType.includes('pdf')) fileExtension = 'pdf';
-                else if (doc.fileType.includes('word')) fileExtension = 'docx';
-                else if (doc.fileType.includes('spreadsheetml')) fileExtension = 'xlsx';
+                const buffer = await fs.readFile(tempFilePath);
+                let extractedText = 'Unsupported file type for text extraction.';
 
-                // Extract text using the appropriate parser
-                const extractedText = await extractTextFromFile(tempFilePath, fileExtension);
+                if (fileType.includes('pdf')) {
+                    const data = await pdf(buffer);
+                    extractedText = data.text;
+                } else if (fileType.includes('word')) { // .doc, .docx
+                    const { value } = await mammoth.extractRawText({ buffer });
+                    extractedText = value;
+                } else if (fileType.includes('spreadsheetml')) { // .xlsx
+                    const workbook = xlsx.read(buffer, { type: 'buffer' });
+                    let fullText = '';
+                    workbook.SheetNames.forEach(sheetName => {
+                        const sheet = workbook.Sheets[sheetName];
+                        const csv = xlsx.utils.sheet_to_csv(sheet);
+                        fullText += `Sheet: ${sheetName}\n${csv}\n\n`;
+                    });
+                    extractedText = fullText;
+                }
+                
                 fullTextDescription += `\n\n--- FULL TEXT ---\n\n${extractedText}`;
 
             } catch (e: any) {
-                console.warn(`Could not read file content for "${doc.name}" from ${filePath}:`, e.message);
+                console.warn(`Could not read file content for "${doc.name}" from ${filePath}:`, e);
                 fullTextDescription += `\n\n--- FILE CONTENT UNAVAILABLE ---`;
             } finally {
                 // Clean up the temporary file
