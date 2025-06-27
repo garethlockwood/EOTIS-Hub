@@ -9,7 +9,7 @@ import { NAV_ITEMS } from '@/lib/constants';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Sheet, SheetContent, SheetTitle, SheetClose, SheetTrigger } from '@/components/ui/sheet';
-import { Menu, X, Settings, Bell, ChevronsLeft, ChevronsRight, LogOut, Loader2 } from 'lucide-react';
+import { Menu, X, Settings, Bell, ChevronsLeft, ChevronsRight, LogOut, Loader2, ChevronDown } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import Image from 'next/image';
 import {
@@ -31,28 +31,79 @@ interface SidebarNavProps {
   pathname: string | null;
 }
 
-const SidebarNavigation: React.FC<SidebarNavProps> = ({ isCollapsed, onLinkClick, pathname }) => (
-  <nav className={cn("flex flex-col gap-2", isCollapsed ? "px-2" : "px-4")}>
-    {NAV_ITEMS.map((item) => (
-      <Button
-        key={item.title}
-        asChild
-        variant={pathname === item.href ? 'default' : 'ghost'}
-        className={cn(
-          "justify-start h-10 w-full",
-          isCollapsed && "px-0 justify-center"
-        )}
-        onClick={onLinkClick}
-        title={isCollapsed ? item.title : undefined}
-      >
-        <Link href={item.href} className={cn("flex items-center gap-3 w-full", isCollapsed && "justify-center")}>
-          <item.icon className="h-5 w-5 flex-shrink-0" />
-          {!isCollapsed && <span className="truncate">{item.title}</span>}
-        </Link>
-      </Button>
-    ))}
-  </nav>
-);
+const SidebarNavigation: React.FC<SidebarNavProps> = ({ isCollapsed, onLinkClick, pathname }) => {
+  const [openMenus, setOpenMenus] = useState<Set<string>>(() => {
+    const activeParent = NAV_ITEMS.find(item => item.items?.some(sub => pathname?.startsWith(sub.href)))?.title;
+    return new Set(activeParent ? [activeParent] : []);
+  });
+
+  const toggleMenu = (title: string) => {
+    setOpenMenus(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(title)) {
+        newSet.delete(title);
+      } else {
+        newSet.add(title);
+      }
+      return newSet;
+    });
+  };
+
+  return (
+    <nav className={cn("flex flex-col gap-1", isCollapsed ? "px-2" : "px-4")}>
+      {NAV_ITEMS.map((item) => (
+        <div key={item.title}>
+          {item.items ? (
+            <>
+              <Button
+                variant={item.items.some(sub => pathname?.startsWith(sub.href)) ? 'secondary' : 'ghost'}
+                className={cn("w-full justify-between", isCollapsed && "justify-center px-0")}
+                onClick={() => !isCollapsed && toggleMenu(item.title)}
+                title={isCollapsed ? item.title : undefined}
+              >
+                <div className="flex items-center gap-3">
+                  <item.icon className="h-5 w-5 flex-shrink-0" />
+                  {!isCollapsed && <span className="truncate">{item.title}</span>}
+                </div>
+                {!isCollapsed && <ChevronDown className={cn("h-4 w-4 transition-transform", openMenus.has(item.title) && "rotate-180")} />}
+              </Button>
+              {!isCollapsed && openMenus.has(item.title) && (
+                <div className="pl-8 pt-1 flex flex-col gap-1">
+                  {item.items.map((subItem) => (
+                    <Button
+                      key={subItem.title}
+                      asChild
+                      variant={pathname === subItem.href ? 'secondary' : 'ghost'}
+                      className="justify-start h-9 w-full"
+                      onClick={onLinkClick}
+                    >
+                      <Link href={subItem.href}>
+                        <span className="truncate">{subItem.title}</span>
+                      </Link>
+                    </Button>
+                  ))}
+                </div>
+              )}
+            </>
+          ) : (
+            <Button
+              asChild
+              variant={pathname === item.href ? 'default' : 'ghost'}
+              className={cn("w-full justify-start", isCollapsed && "justify-center px-0")}
+              onClick={onLinkClick}
+              title={isCollapsed ? item.title : undefined}
+            >
+              <Link href={item.href} className="flex items-center gap-3">
+                <item.icon className="h-5 w-5 flex-shrink-0" />
+                {!isCollapsed && <span className="truncate">{item.title}</span>}
+              </Link>
+            </Button>
+          )}
+        </div>
+      ))}
+    </nav>
+  );
+};
 
 function AppLayoutContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();

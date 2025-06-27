@@ -5,10 +5,11 @@ export type Currency = 'USD' | 'GBP' | 'EUR';
 
 export interface NavItem {
   title: string;
-  href: string;
+  href: string; // Remains for top-level items, or as a base path for groups
   icon: LucideIcon;
   disabled?: boolean;
   label?: string;
+  items?: NavItem[]; // For sub-menu items
 }
 
 export interface User {

@@ -4,6 +4,7 @@ import { initializeApp, getApps, getApp, type FirebaseOptions } from 'firebase/a
 import { getFirestore } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import { getStorage } from 'firebase/storage';
+import { getFunctions } from 'firebase/functions';
 
 const firebaseConfigValues = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -58,5 +59,6 @@ if (!getApps().length) {
 const db = getFirestore(app);
 const storage = getStorage(app);
 const auth = getAuth(app);
+const functions = getFunctions(app);
 
-export { db, storage, auth };
+export { db, storage, auth, functions };

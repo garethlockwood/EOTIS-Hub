@@ -87,3 +87,5 @@ export const onFileUpload = functions.storage
       `Processed and stored ${chunks.length} chunks for user ${userId}`
     );
   });
+
+export { createBankLink } from "./gocardless";
