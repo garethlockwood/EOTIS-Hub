@@ -1,9 +1,14 @@
 
-import { onCall } from "firebase-functions/v2/https";
-import * as functions from "firebase-functions";
+import { onCall, HttpsError } from "firebase-functions/v2/https";
 import axios from "axios";
+import { defineString } from "firebase-functions/params";
 
 const GC_BASE = "https://bankaccountdata.gocardless.com/api/v2";
+
+// Define secrets using the v2 parameter API.
+// This looks for GOCARDLESS_SECRET_ID and GOCARDLESS_SECRET_KEY in your environment.
+const GOCARDLESS_SECRET_ID = defineString("GOCARDLESS_SECRET_ID");
+const GOCARDLESS_SECRET_KEY = defineString("GOCARDLESS_SECRET_KEY");
 
 /**
  * Firebase Callable Function to create a bank link (requisition)
@@ -14,15 +19,16 @@ export const createBankLink = onCall(async (request) => {
   const context = request.auth;
 
   if (!context?.uid) {
-    throw new functions.https.HttpsError("unauthenticated", "Must be logged in.");
+    throw new HttpsError("unauthenticated", "Must be logged in.");
   }
 
-  const secret_id = functions.config().gocardless.secret_id;
-  const secret_key = functions.config().gocardless.secret_key;
+  // Access the secret values. .value() will throw if they are not set.
+  const secret_id = GOCARDLESS_SECRET_ID.value();
+  const secret_key = GOCARDLESS_SECRET_KEY.value();
 
   if (!secret_id || !secret_key) {
     console.error("GoCardless secrets are not configured in Firebase environment.");
-    throw new functions.https.HttpsError("internal", "Server configuration error.");
+    throw new HttpsError("internal", "Server configuration error.");
   }
 
   const auth = { username: secret_id, password: secret_key };
@@ -50,6 +56,6 @@ export const createBankLink = onCall(async (request) => {
     return { link: requisitionRes.data.link };
   } catch (error: any) {
     console.error("GoCardless error:", error.response?.data || error.message);
-    throw new functions.https.HttpsError("internal", "Failed to create requisition.");
+    throw new HttpsError("internal", "Failed to create requisition.");
   }
 });
