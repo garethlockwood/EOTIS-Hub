@@ -15,12 +15,16 @@ import { z } from 'genkit';
 import { getEhcpDocuments } from '@/app/(app)/ehcp/actions';
 import { getContentDocuments } from '@/app/(app)/repository/actions';
 import { storageAdmin } from '@/lib/firebase-admin';
-import mammoth from 'mammoth';
-import pdf from 'pdf-parse';
 import * as xlsx from 'xlsx';
 import { tmpdir } from 'os';
 import { promises as fs } from 'fs';
 import path from 'path';
+
+// Using require for these packages to work around a Next.js/Turbopack bundling issue
+// that causes an ENOENT error when using standard imports.
+const mammoth = require('mammoth');
+const pdf = require('pdf-parse');
+
 
 const AskAiAssistantQuestionsInputSchema = z.object({
   question: z.string().describe('The question to ask the AI assistant.'),
