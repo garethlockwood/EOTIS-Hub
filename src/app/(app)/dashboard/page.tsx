@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { PageHeader } from '@/components/common/page-header';
 import { StatCard } from '@/components/dashboard/stat-card';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -9,14 +9,15 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { PLACEHOLDER_LESSONS, PLACEHOLDER_INVOICES, PLACEHOLDER_MEETINGS, PLACEHOLDER_TODOS } from '@/lib/constants';
-import type { UpcomingLesson, UnpaidInvoice, ScheduledMeeting, TodoItem, Student } from '@/types';
+import { PLACEHOLDER_LESSONS, PLACEHOLDER_MEETINGS, PLACEHOLDER_TODOS } from '@/lib/constants';
+import type { UpcomingLesson, ScheduledMeeting, TodoItem, Student, FinancialDocument } from '@/types';
 import { CalendarClock, FileText, Users2, ListChecks, PlusCircle, UserPlus, Loader2, UserX } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/use-auth';
 import { useStudent } from '@/hooks/use-student';
 import { AddStudentDialog } from '@/components/students/add-student-dialog';
 import { formatCurrency } from '@/lib/utils';
+import { getFinancialDocuments } from '@/app/(app)/finances/actions';
 
 export default function DashboardPage() {
   const { user, currency } = useAuth();
@@ -24,12 +25,42 @@ export default function DashboardPage() {
   const [todos, setTodos] = useState<TodoItem[]>(PLACEHOLDER_TODOS);
   const [newTodo, setNewTodo] = useState('');
   const [isAddStudentOpen, setIsAddStudentOpen] = useState(false);
+  
+  const [financialDocs, setFinancialDocs] = useState<FinancialDocument[]>([]);
+  const [financeIsLoading, setFinanceIsLoading] = useState(true);
 
   const studentId = selectedStudent?.id;
 
+  const fetchFinancialData = useCallback(async (id: string) => {
+    setFinanceIsLoading(true);
+    const { documents, error } = await getFinancialDocuments(id);
+    if (documents) {
+      setFinancialDocs(documents);
+    }
+    if (error) {
+      console.error("Dashboard: Failed to fetch financial documents:", error);
+      setFinancialDocs([]);
+    }
+    setFinanceIsLoading(false);
+  }, []);
+
+  useEffect(() => {
+    if (studentId) {
+      fetchFinancialData(studentId);
+    } else {
+      setFinancialDocs([]);
+      setFinanceIsLoading(false);
+    }
+  }, [studentId, fetchFinancialData]);
+
+
   const todosForStudent = useMemo(() => todos.filter(t => t.studentId === studentId), [todos, studentId]);
   const lessonsForStudent = useMemo(() => PLACEHOLDER_LESSONS.filter(l => l.studentId === studentId), [studentId]);
-  const invoicesForStudent = useMemo(() => PLACEHOLDER_INVOICES.filter(i => i.studentId === studentId), [studentId]);
+  
+  const unpaidInvoices = useMemo(() => 
+    financialDocs.filter(doc => doc.type === 'Invoice' && (doc.status === 'Unpaid' || doc.status === 'Overdue'))
+  , [financialDocs]);
+
   const meetingsForStudent = useMemo(() => PLACEHOLDER_MEETINGS.filter(m => m.studentId === studentId), [studentId]);
 
   const handleToggleTodo = (id: string) => {
@@ -55,7 +86,7 @@ export default function DashboardPage() {
   };
 
   const renderContent = () => {
-    if (studentIsLoading) {
+    if (studentIsLoading || financeIsLoading) {
       return (
         <div className="flex justify-center items-center h-64">
           <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -82,7 +113,7 @@ export default function DashboardPage() {
       <>
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-6">
           <StatCard title="Upcoming Lessons" value={lessonsForStudent.length} icon={CalendarClock} description="Next 7 days" />
-          <StatCard title="Unpaid Invoices" value={invoicesForStudent.length} icon={FileText} description={`Total: ${formatCurrency(invoicesForStudent.reduce((sum, inv) => sum + inv.amount, 0), currency)}`} />
+          <StatCard title="Unpaid Invoices" value={unpaidInvoices.length} icon={FileText} description={`Total: ${formatCurrency(unpaidInvoices.reduce((sum, inv) => sum + (inv.amount || 0), 0), currency)}`} />
           <StatCard title="Scheduled Meetings" value={meetingsForStudent.length} icon={Users2} description="Next 7 days" />
           <StatCard title="Pending Todos" value={todosForStudent.filter(t => !t.completed).length} icon={ListChecks} />
         </div>

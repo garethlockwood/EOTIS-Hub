@@ -1,6 +1,6 @@
 
 import type { NavItem, UpcomingLesson, UnpaidInvoice, ScheduledMeeting, TodoItem, StaffMember, FinancialDocument, ContentDocument, CalendarEvent, EHCPDocument } from '@/types';
-import { LayoutDashboard, CalendarDays, Users, CreditCard, FolderKanban, Sparkles, UserCircle2 as ProfileIcon, ClipboardList } from 'lucide-react';
+import { LayoutDashboard, CalendarDays, Users, CreditCard, FolderKanban, ClipboardList } from 'lucide-react';
 
 export const NAV_ITEMS: NavItem[] = [
   { title: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -20,11 +20,6 @@ export const PLACEHOLDER_TODOS: TodoItem[] = [
 export const PLACEHOLDER_LESSONS: UpcomingLesson[] = [
   { id: '1', subject: 'Algebra II', tutor: 'Dr. Emily Carter', time: '10:00 AM - 11:00 AM', date: new Date(Date.now() + 86400000).toISOString().split('T')[0], meetingLink: '#', studentId: 'student_1_placeholder' },
   { id: '2', subject: 'Introduction to Physics', tutor: 'Mr. John Doe', time: '2:00 PM - 3:00 PM', date: new Date(Date.now() + 2 * 86400000).toISOString().split('T')[0], meetingLink: '#', studentId: 'student_2_placeholder' },
-];
-
-export const PLACEHOLDER_INVOICES: UnpaidInvoice[] = [
-  { id: '1', invoiceNumber: 'INV-001', clientName: 'Parent A', amount: 150, dueDate: new Date(Date.now() + 5 * 86400000).toISOString().split('T')[0], studentId: 'student_1_placeholder' },
-  { id: '2', invoiceNumber: 'INV-002', clientName: 'Parent B', amount: 200, dueDate: new Date(Date.now() + 10 * 86400000).toISOString().split('T')[0], studentId: 'student_2_placeholder' },
 ];
 
 export const PLACEHOLDER_MEETINGS: ScheduledMeeting[] = [
