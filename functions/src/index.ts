@@ -1,7 +1,7 @@
 
 import * as functions from "firebase-functions/v1";
 import * as admin from "firebase-admin";
-import { Storage } from "@google-cloud/storage";
+import {Storage} from "@google-cloud/storage";
 import pdfParse from "pdf-parse";
 import * as mammoth from "mammoth";
 import * as xlsx from "xlsx";
@@ -40,12 +40,12 @@ export const onFileUpload = functions.storage
       } else if (
         contentType.includes("officedocument.wordprocessingml.document")
       ) {
-        text = (await mammoth.extractRawText({ buffer })).value;
+        text = (await mammoth.extractRawText({buffer})).value;
       } else if (
         contentType.includes("spreadsheet") ||
         filePath.endsWith(".xlsx")
       ) {
-        const workbook = xlsx.read(buffer, { type: "buffer" });
+        const workbook = xlsx.read(buffer, {type: "buffer"});
         text = workbook.SheetNames.map((sheetName) =>
           xlsx.utils.sheet_to_csv(workbook.Sheets[sheetName])
         ).join("\n");

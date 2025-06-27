@@ -15,6 +15,7 @@ export async function getTodos(studentId: string): Promise<{ todos?: TodoItem[];
     const snapshot = await dbAdmin
       .collection('todos')
       .where('studentId', '==', studentId)
+      .orderBy('createdAt', 'desc')
       .get();
     
     const todos = snapshot.docs.map(doc => {
@@ -27,9 +28,6 @@ export async function getTodos(studentId: string): Promise<{ todos?: TodoItem[];
         createdAt: (data.createdAt as Timestamp).toDate().toISOString(),
       } as TodoItem;
     });
-
-    // Sort in-memory instead of in the query
-    todos.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
     return { todos };
   } catch (error: any) {
