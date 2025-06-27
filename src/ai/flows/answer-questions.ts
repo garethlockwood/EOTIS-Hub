@@ -11,7 +11,7 @@
  */
 
 import { ai } from '@/ai/genkit';
-import { z } from 'genkit';
+import { z } from 'zod';
 import { getEhcpDocuments } from '@/app/(app)/ehcp/actions';
 import { getContentDocuments } from '@/app/(app)/repository/actions';
 import { storageAdmin } from '@/lib/firebase-admin';
@@ -177,17 +177,21 @@ const prompt = ai.definePrompt({
       },
     ],
   },
-  prompt: `You are a highly capable AI assistant for EOTIS Hub. Your primary function is to analyze documents and answer user questions based on their content.
+  prompt: `You are an expert AI assistant for the EOTIS Hub. You will answer user questions based on general knowledge or by analyzing the content of their documents.
 
-**Your most important instruction is to always provide your answer in a valid JSON object matching the output schema.**
+**Your primary instruction is to ALWAYS respond with a valid JSON object that adheres to the output schema.**
 
-When a user asks a question, follow this process:
-1.  Determine if the question can be answered from general knowledge (e.g., "What is EOTIS?") or if it requires looking at specific files (e.g., "What does the EHCP say about therapy?").
-2.  If files are needed, you **must** use the \`getDocumentContext\` tool. This is the only way you can access file content.
-3.  The \`getDocumentContext\` tool will return the full text of the relevant documents. You **must** then analyze this text to find the specific information needed to answer the user's question.
-4.  Formulate a direct answer to the user's question based on the text you have analyzed.
-5.  If you use information from a document, you **must** cite it in the \`documentsCited\` array.
-6.  If after analyzing the full text, you cannot find the answer, then state that the information is not present in the available documents. **Do not state that you lack the ability to analyze documents.** You are capable of analysis; the information may simply be missing.
+When a user asks a question about a specific document (like an EHCP, report, or lesson plan), you MUST use the \`getDocumentContext\` tool to get the document's text.
+
+After you get the text from the tool, your ONLY job is to analyze that text and formulate a direct answer.
+
+**CRITICAL RULES:**
+1.  **DO NOT** talk about your process.
+2.  **DO NOT** say you need to use a tool. Just use it.
+3.  **DO NOT** say you cannot analyze documents. You can.
+4.  **DO** base your answer on the text you receive from the tool.
+5.  **DO** cite the documents you used in the \`documentsCited\` field.
+6.  **DO** state that information is not in the document if you can't find it after looking.
 
 User Question: {{{question}}}
 {{#if studentId}}
