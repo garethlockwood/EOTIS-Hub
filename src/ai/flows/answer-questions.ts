@@ -208,9 +208,9 @@ const askAiAssistantQuestionsFlow = ai.defineFlow(
     outputSchema: AskAiAssistantQuestionsOutputSchema,
   },
   async (input) => {
-    // Use .generate() to get the full response object for better debugging.
-    const llmResponse = await prompt.generate({ input });
-    const output = llmResponse.output();
+    // Call the prompt object directly. It returns the full GenerateResponse.
+    const llmResponse = await prompt(input);
+    const output = llmResponse.output;
 
     if (!output) {
       // Log the full response for diagnostics, including any finish reasons.
