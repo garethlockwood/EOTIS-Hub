@@ -22,8 +22,7 @@ import path from 'path';
 
 // Using require for these packages to work around a Next.js/Turbopack bundling issue
 // that causes an ENOENT error when using standard imports.
-const mammoth = require('mammoth');
-const pdf = require('pdf-parse');
+// Moving these inside the function to further isolate them for the bundler.
 
 
 const AskAiAssistantQuestionsInputSchema = z.object({
@@ -81,6 +80,11 @@ const getDocumentContext = ai.defineTool(
         if (filePath && (fileType.includes('pdf') || fileType.includes('word') || fileType.includes('spreadsheetml'))) {
             const tempFilePath = path.join(tmpdir(), path.basename(filePath));
             try {
+                // To work around a Next.js/Turbopack bundling issue, we scope the require calls
+                // for these specific libraries to inside this function.
+                const mammoth = require('mammoth');
+                const pdf = require('pdf-parse');
+
                 // Download the file from Firebase Storage to a temporary local path
                 await storageAdmin.bucket().file(filePath).download({ destination: tempFilePath });
                 
