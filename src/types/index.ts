@@ -36,6 +36,7 @@ export interface TodoItem {
   text: string;
   completed: boolean;
   studentId: string;
+  createdAt: string; // ISO string from Timestamp
 }
 
 export interface UpcomingLesson {

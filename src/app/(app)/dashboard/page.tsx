@@ -9,8 +9,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { PLACEHOLDER_LESSONS, PLACEHOLDER_MEETINGS, PLACEHOLDER_TODOS } from '@/lib/constants';
-import type { UpcomingLesson, ScheduledMeeting, TodoItem, Student, FinancialDocument } from '@/types';
+import { format, parseISO } from 'date-fns';
+import type { Student, FinancialDocument, CalendarEvent, TodoItem } from '@/types';
 import { CalendarClock, FileText, Users2, ListChecks, PlusCircle, UserPlus, Loader2, UserX } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/use-auth';
@@ -18,75 +18,107 @@ import { useStudent } from '@/hooks/use-student';
 import { AddStudentDialog } from '@/components/students/add-student-dialog';
 import { formatCurrency } from '@/lib/utils';
 import { getFinancialDocuments } from '@/app/(app)/finances/actions';
+import { getCalendarEvents } from '@/app/(app)/calendar/actions';
+import { getTodos, addTodo, toggleTodo } from './actions';
+import { useToast } from '@/hooks/use-toast';
 
 export default function DashboardPage() {
   const { user, currency } = useAuth();
   const { selectedStudent, addAndSelectStudent, isLoading: studentIsLoading } = useStudent();
-  const [todos, setTodos] = useState<TodoItem[]>(PLACEHOLDER_TODOS);
+  const { toast } = useToast();
+  
   const [newTodo, setNewTodo] = useState('');
   const [isAddStudentOpen, setIsAddStudentOpen] = useState(false);
   
   const [financialDocs, setFinancialDocs] = useState<FinancialDocument[]>([]);
-  const [financeIsLoading, setFinanceIsLoading] = useState(true);
+  const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
+  const [todos, setTodos] = useState<TodoItem[]>([]);
+  const [pageIsLoading, setPageIsLoading] = useState(true);
 
   const studentId = selectedStudent?.id;
 
-  const fetchFinancialData = useCallback(async (id: string) => {
-    setFinanceIsLoading(true);
-    const { documents, error } = await getFinancialDocuments(id);
-    if (documents) {
-      setFinancialDocs(documents);
-    }
-    if (error) {
-      console.error("Dashboard: Failed to fetch financial documents:", error);
-      setFinancialDocs([]);
-    }
-    setFinanceIsLoading(false);
+  const fetchDashboardData = useCallback(async (id: string) => {
+    setPageIsLoading(true);
+    const [financeResult, calendarResult, todosResult] = await Promise.all([
+      getFinancialDocuments(id),
+      getCalendarEvents(id),
+      getTodos(id),
+    ]);
+  
+    if (financeResult.documents) setFinancialDocs(financeResult.documents);
+    else console.error("Dashboard: Failed to fetch financial documents:", financeResult.error);
+  
+    if (calendarResult.events) setCalendarEvents(calendarResult.events as CalendarEvent[]);
+    else console.error("Dashboard: Failed to fetch calendar events:", calendarResult.error);
+  
+    if (todosResult.todos) setTodos(todosResult.todos);
+    else console.error("Dashboard: Failed to fetch todos:", todosResult.error);
+  
+    setPageIsLoading(false);
   }, []);
 
   useEffect(() => {
     if (studentId) {
-      fetchFinancialData(studentId);
+      fetchDashboardData(studentId);
     } else {
       setFinancialDocs([]);
-      setFinanceIsLoading(false);
+      setCalendarEvents([]);
+      setTodos([]);
+      setPageIsLoading(false);
     }
-  }, [studentId, fetchFinancialData]);
+  }, [studentId, fetchDashboardData]);
 
+  const upcomingEvents = useMemo(() => {
+    const now = new Date();
+    const nextSevenDays = new Date();
+    nextSevenDays.setDate(now.getDate() + 7);
+    return calendarEvents
+        .filter(event => {
+            const eventStartDate = parseISO(event.start as string);
+            return eventStartDate >= now && eventStartDate <= nextSevenDays;
+        })
+        .sort((a,b) => parseISO(a.start as string).getTime() - parseISO(b.start as string).getTime());
+  }, [calendarEvents]);
 
-  const todosForStudent = useMemo(() => todos.filter(t => t.studentId === studentId), [todos, studentId]);
-  const lessonsForStudent = useMemo(() => PLACEHOLDER_LESSONS.filter(l => l.studentId === studentId), [studentId]);
+  const upcomingLessons = useMemo(() => upcomingEvents.filter(e => e.tutorName), [upcomingEvents]);
+  const upcomingMeetings = useMemo(() => upcomingEvents.filter(e => !e.tutorName), [upcomingEvents]);
   
   const unpaidInvoices = useMemo(() => 
     financialDocs.filter(doc => doc.type === 'Invoice' && (doc.status === 'Unpaid' || doc.status === 'Overdue'))
   , [financialDocs]);
 
-  const meetingsForStudent = useMemo(() => PLACEHOLDER_MEETINGS.filter(m => m.studentId === studentId), [studentId]);
+  const pendingTodos = useMemo(() => todos.filter(t => !t.completed), [todos]);
 
-  const handleToggleTodo = (id: string) => {
-    setTodos(prevTodos =>
-      prevTodos.map(todo =>
-        todo.id === id ? { ...todo, completed: !todo.completed } : todo
-      )
-    );
+  const handleToggleTodo = async (id: string, currentStatus: boolean) => {
+    const originalTodos = [...todos];
+    setTodos(prev => prev.map(t => t.id === id ? { ...t, completed: !currentStatus } : t));
+    const result = await toggleTodo(id, !currentStatus);
+    if (!result.success) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to update task.' });
+      setTodos(originalTodos);
+    }
   };
 
-  const handleAddTodo = (e: React.FormEvent) => {
+  const handleAddTodo = async (e: React.FormEvent) => {
     e.preventDefault();
     if (newTodo.trim() === '' || !studentId) return;
-    setTodos(prevTodos => [
-      ...prevTodos,
-      { id: Date.now().toString(), text: newTodo.trim(), completed: false, studentId },
-    ]);
+    const tempText = newTodo.trim();
     setNewTodo('');
+    const result = await addTodo(studentId, tempText);
+    if (result.success && result.todo) {
+      setTodos(prev => [result.todo!, ...prev]);
+    } else {
+      toast({ variant: 'destructive', title: 'Error', description: result.error || 'Failed to add task.' });
+      setNewTodo(tempText);
+    }
   };
-
+  
   const handleStudentAdded = (newStudent: Student) => {
     addAndSelectStudent(newStudent);
   };
 
   const renderContent = () => {
-    if (studentIsLoading || financeIsLoading) {
+    if (studentIsLoading || pageIsLoading) {
       return (
         <div className="flex justify-center items-center h-64">
           <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -112,10 +144,10 @@ export default function DashboardPage() {
     return (
       <>
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-6">
-          <StatCard title="Upcoming Lessons" value={lessonsForStudent.length} icon={CalendarClock} description="Next 7 days" />
+          <StatCard title="Upcoming Lessons" value={upcomingLessons.length} icon={CalendarClock} description="Next 7 days" />
           <StatCard title="Unpaid Invoices" value={unpaidInvoices.length} icon={FileText} description={`Total: ${formatCurrency(unpaidInvoices.reduce((sum, inv) => sum + (inv.amount || 0), 0), currency)}`} />
-          <StatCard title="Scheduled Meetings" value={meetingsForStudent.length} icon={Users2} description="Next 7 days" />
-          <StatCard title="Pending Todos" value={todosForStudent.filter(t => !t.completed).length} icon={ListChecks} />
+          <StatCard title="Scheduled Meetings" value={upcomingMeetings.length} icon={Users2} description="Next 7 days" />
+          <StatCard title="Pending Todos" value={pendingTodos.length} icon={ListChecks} />
         </div>
 
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -131,13 +163,13 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
               <ScrollArea className="h-72">
-                {lessonsForStudent.length > 0 ? (
+                {upcomingLessons.length > 0 ? (
                   <ul className="space-y-3">
-                    {lessonsForStudent.map(lesson => (
+                    {upcomingLessons.map(lesson => (
                       <li key={lesson.id} className="p-3 bg-secondary/50 rounded-md shadow-sm hover:bg-secondary transition-colors">
-                        <h4 className="font-semibold font-body">{lesson.subject}</h4>
-                        <p className="text-sm text-muted-foreground">Tutor: {lesson.tutor}</p>
-                        <p className="text-sm text-muted-foreground">Date: {lesson.date}, Time: {lesson.time}</p>
+                        <h4 className="font-semibold font-body">{lesson.title}</h4>
+                        <p className="text-sm text-muted-foreground">Tutor: {lesson.tutorName}</p>
+                        <p className="text-sm text-muted-foreground">Date: {format(parseISO(lesson.start as string), 'PPP, p')}</p>
                         {lesson.meetingLink && <a href={lesson.meetingLink} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline">Join Meeting</a>}
                       </li>
                     ))}
@@ -153,7 +185,6 @@ export default function DashboardPage() {
             <CardHeader>
               <CardTitle className="font-headline flex items-center justify-between">
                 To-Do List
-                <Button variant="ghost" size="sm" onClick={handleAddTodo}><PlusCircle className="mr-2 h-4 w-4" />Add</Button>
               </CardTitle>
               <CardDescription>Manage your tasks and stay organized.</CardDescription>
             </CardHeader>
@@ -168,14 +199,14 @@ export default function DashboardPage() {
                 <Button type="submit" variant="outline">Add</Button>
               </form>
               <ScrollArea className="h-60">
-                {todosForStudent.length > 0 ? (
+                {todos.length > 0 ? (
                   <ul className="space-y-2">
-                    {todosForStudent.map(todo => (
+                    {todos.map(todo => (
                       <li key={todo.id} className="flex items-center space-x-3 p-2 bg-secondary/50 rounded-md">
                         <Checkbox
                           id={`todo-${todo.id}`}
                           checked={todo.completed}
-                          onCheckedChange={() => handleToggleTodo(todo.id)}
+                          onCheckedChange={() => handleToggleTodo(todo.id, todo.completed)}
                           aria-labelledby={`todo-label-${todo.id}`}
                         />
                         <label
